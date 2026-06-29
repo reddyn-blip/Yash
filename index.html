@@ -237,9 +237,9 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-
   <div class="source" id="sourceBar">
     <span class="pill" id="sourcePill">Awaiting upload</span>
     <div class="files">
-      <label class="filedrop" id="fdManifest"><span class="dot"></span><span><span class="lbl">Daily report</span><br><span class="sub">raw shipment CSV</span></span><input type="file" accept=".csv" data-kind="manifest"></label>
+      <label class="filedrop" id="fdManifest" title="Upload the CENTRALISED REPORT"><span class="dot"></span><span><span class="lbl">Daily report</span><br><span class="sub">raw shipment CSV</span></span><input type="file" accept=".csv" data-kind="manifest"></label>
       <label class="filedrop" id="fdTargets"><span class="dot"></span><span><span class="lbl">Targets</span><br><span class="sub">seller + target</span></span><input type="file" accept=".csv,.xlsx,.xls" data-kind="targets"></label>
-      <label class="filedrop" id="fdAccounts"><span class="dot"></span><span><span class="lbl">Accounts (AM/KAM)</span><br><span class="sub">optional · directory</span></span><input type="file" accept=".csv,.xlsx,.xls" data-kind="accounts"></label>
+      <label class="filedrop" id="fdAccounts" title="Upload the TEMPLATE_UPDATE_SELLERS"><span class="dot"></span><span><span class="lbl">Accounts (AM/KAM)</span><br><span class="sub">optional · directory</span></span><input type="file" accept=".csv,.xlsx,.xls" data-kind="accounts"></label>
       <button class="btn" id="dlBtn" title="Optional — save the processed data as a JSON backup">⬇ Save backup</button>
     </div>
     <p class="note" id="sourceNote">Everything runs in your browser — nothing is uploaded anywhere. Drop the <b>Daily report</b> and your <b>Target</b> file (and optionally the <b>Accounts</b> directory). With the directory, every account in it is shown and accounts without a target count as target 0. KAM fills in from the directory's KAM column when you add it.</p>
