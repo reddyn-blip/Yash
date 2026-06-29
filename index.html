@@ -154,6 +154,7 @@ td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-numeric:tabular
 .badge.decline{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line)}
 .badge.pace{background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line-strong)}
 .badge.pickup{background:#FFF0E0;color:#9A4A00;border:1px solid #F2D2AE}
+.badge.lowpick{background:#FDE2E2;color:#9B1C1C;border:1px solid #F3C0C0}
 .badge.rto{background:#F3E8FF;color:#6B21A8;border:1px solid #E3CDF7}
 .badge.ndr{background:#FDE7F0;color:#9B1B52;border:1px solid #F4C4D8}
 .badge.ok{background:var(--surface-2);color:var(--faint);border:1px solid var(--line)}
@@ -348,7 +349,7 @@ const KAM_MAP = {
 const kamOf = s => (s.kam && String(s.kam).trim()) || KAM_MAP[s.ae] || "";
 
 /* thresholds for the fulfilment-ops flags (cumulative over the file) */
-const OPS = { pickupMin:5, rtoRate:0.20, rtoMinShip:10, ndrMin:5, ndrEnabled:false };
+const OPS = { pickupMin:5, rtoRate:0.20, rtoMinShip:10, ndrMin:5, ndrEnabled:false, pickRate:0.80, pickMin:10 };
 
 /* ====== targets come entirely from targets.csv in the repo (no data embedded here) ====== */
 const TARGETS = {};
@@ -444,6 +445,10 @@ function analyse(){
     // Average DRR over the selected period [from,to]
     const winVol = winDates.reduce((a,d)=>a+(v[dates.indexOf(d)]||0),0);
     const avgDRR = winVol/winDays;
+    // Manifested vs Picked over the selected period
+    const pickedWin = winDates.reduce((a,d)=>a+((s.pk&&s.pk[dates.indexOf(d)])||0),0);
+    const pickRate = winVol>0 ? pickedWin/winVol : null;
+    const notPicked = winVol - pickedWin;
 
     // manifest-time prediction & overdue alert (evaluated on the pull date)
     const todayCnt = pullIdx>=0 ? (v[pullIdx]||0) : 0;
@@ -456,10 +461,11 @@ function analyse(){
     const pickupFlag = eligible && op.pp>=OPS.pickupMin;
     const rtoFlag    = eligible && op.tot>=OPS.rtoMinShip && op.rrate>=OPS.rtoRate;
     const ndrFlag    = OPS.ndrEnabled && eligible && op.ndr>=OPS.ndrMin;
+    const lowPick    = eligible && winVol>=OPS.pickMin && pickRate!=null && pickRate < OPS.pickRate;
 
     return {...s, kam:kamOf(s), today, roll7, mtdAvg, baseline, deltaPct, eligible, silent, drop, surge, decline,
-      volMTD, drrMTD, overallDRR, avgDRR, periodVol:winVol, tDRR, tVol, volLeft, drrNeeded, pacePct, gap, behindPace, wow,
-      manifestedToday, overdue, op, pickupFlag, rtoFlag, ndrFlag,
+      volMTD, drrMTD, overallDRR, avgDRR, periodVol:winVol, pickedWin, pickRate, notPicked, tDRR, tVol, volLeft, drrNeeded, pacePct, gap, behindPace, wow,
+      manifestedToday, overdue, op, pickupFlag, rtoFlag, ndrFlag, lowPick,
       impact: baseline-today,
       spark: v.slice(Math.max(0,idx-13), idx+1)};
   });
@@ -496,6 +502,7 @@ function badges(r){
   if(r.surge)  b.push(`<span class="badge surge" title="Today is more than 15% above the seller's baseline DRR.">CALL · surge ${fmtPct(r.deltaPct)}</span>`);
   if(r.decline)b.push(`<span class="badge decline" title="Shipments fell on three consecutive days — a sustained slide, not a one-day blip.">3-day slide</span>`);
   if(r.behindPace) b.push(`<span class="badge pace" title="Cycle-to-date run rate is under 90% of the target DRR — behind the monthly pace.">Behind pace</span>`);
+  if(r.lowPick)    b.push(`<span class="badge lowpick" title="Only ${(r.pickRate*100).toFixed(0)}% of this seller's manifested shipments were picked up in the selected window — chase the pickup.">Low pick-up ${(r.pickRate*100).toFixed(0)}%</span>`);
   if(r.pickupFlag) b.push(`<span class="badge pickup" title="${r.op.pp} shipments manifested but still awaiting pickup (status: pickup pending / not picked / out for pickup).">Pickup pending ${r.op.pp}</span>`);
   if(r.rtoFlag)    b.push(`<span class="badge rto" title="${(r.op.rrate*100).toFixed(0)}% of this seller's shipments went RTO${r.op.trr?` · top reason: ${r.op.trr}`:""}.">RTO ${(r.op.rrate*100).toFixed(0)}%</span>`);
   if(r.ndrFlag)    b.push(`<span class="badge ndr" title="${r.op.ndr} live NDRs with no seller action yet${r.op.tnr?` · top reason: ${r.op.tnr}`:""}.">NDR open ${r.op.ndr}</span>`);
@@ -519,15 +526,22 @@ function renderKPIs(a){
   const pickup=rows.filter(r=>r.pickupFlag).length;
   const rto=rows.filter(r=>r.rtoFlag).length;
   const ndrop=rows.filter(r=>r.ndrFlag).length;
+  const lowpick=rows.filter(r=>r.lowPick).length;
+  const pickedTot=rows.reduce((s,r)=>s+(r.pickedWin||0),0);
+  const pickPct=volPeriod?Math.round(pickedTot/volPeriod*100):0;
   const cards=[
     {flag:"all",   label: single?"Manifested · day":"Manifested · period",val:fmt(total),
       sub: single?`<span class="${dPct>=0?'up':'down'}">${fmtPct(dPct)}</span> vs baseline`:`${winDays} days · ${fmt(total/winDays)}/day avg`,cls:"",
       tip:"Total shipments over the selected window. Click to clear filters."},
+    {flag:"all",   label:"Picked vs manifested",val:`${pickPct}%`,
+      sub:`${fmt(pickedTot)} of ${fmt(volPeriod)} picked`, cls: pickPct<90?"warn":"",
+      tip:"Share of manifested shipments the courier has actually picked up, over the selected window. The gap is volume that hasn't moved yet (pending pickup or cancelled)."},
     {flag:"overdue",label:"Overdue · call now",val:overdue,sub:"past usual time, 0 today",cls:overdue?"crit":"",tip:"Accounts at zero on today's pull where it's already past the time they start on 80% of days. Click to list them."},
     {flag:"drop",  label:"CALL · drops",val:calls,sub:"down >15% vs baseline",cls:calls?"crit":"",tip:"Accounts more than 15% below their baseline DRR today — your macro's CALL rule. Click to list them."},
     {flag:"silent",label:"Went silent",val:silent,sub:"zero today, active recently",cls:silent?"crit":"",tip:"Accounts with zero shipments today that were active recently. Click to list them."},
     {flag:"decline",label:"3-day slide",val:decline,sub:"declining 3 days running",cls:decline?"warn":"",tip:"Accounts whose shipments fell three days in a row. Click to list them."},
     {flag:"behind",label:"Behind target pace",val:behind,sub:"under 90% of target DRR",cls:behind?"warn":"",tip:"Accounts running under 90% of their target daily rate for the cycle so far. Click to list them."},
+    {flag:"lowpick",label:"Low pick-up",val:lowpick,sub:`under ${Math.round(OPS.pickRate*100)}% picked`,cls:lowpick?"crit":"",tip:`Accounts where under ${Math.round(OPS.pickRate*100)}% of manifested shipments were picked up in the selected window (min ${OPS.pickMin}). Click to list them.`},
     {flag:"pickup",label:"Pickup pending",val:pickup,sub:"≥5 awaiting pickup",cls:pickup?"warn":"",tip:"Accounts with 5+ shipments manifested but not yet picked up (a stuck backlog). Click to list them."},
     {flag:"rto",label:"High RTO",val:rto,sub:"≥20% returns",cls:rto?"warn":"",tip:"Accounts where 20%+ of shipments went return-to-origin (min 10 shipments). Click to list them."},
   ];
@@ -638,6 +652,8 @@ function detailRow(r){
       cell("Today's first manifest", r.ftoday!=null?hhmm(r.ftoday):(r.manifestedToday?"—":"none yet"))
     )}
     ${box("Fulfilment · ops",
+      cell("Picked", fmt(r.pickedWin||0), "courier collected")+
+      cell("Manifested vs picked", r.pickRate!=null?`${(r.pickRate*100).toFixed(0)}%`:"—", `${fmt(r.notPicked||0)} not picked`)+
       cell("Pickup pending", (r.op&&r.op.pp)||0, "awaiting pickup")+
       cell("RTO rate", r.op?((r.op.rrate*100).toFixed(0)+"%"):"—", r.op&&r.op.trr?r.op.trr:"")+
       cell("NDR-tagged", r.op?((r.op.nrate*100).toFixed(0)+"%"):"—", r.op&&r.op.tnr?r.op.tnr:"informational")+
@@ -657,8 +673,9 @@ function renderTable(rows){
   else if(state.flag==="pickup") r=r.filter(x=>x.pickupFlag);
   else if(state.flag==="rto") r=r.filter(x=>x.rtoFlag);
   else if(state.flag==="ndr") r=r.filter(x=>x.ndrFlag);
+  else if(state.flag==="lowpick") r=r.filter(x=>x.lowPick);
   if(state.q){const q=state.q.toLowerCase();r=r.filter(x=>x.n.toLowerCase().includes(q)||x.e.toLowerCase().includes(q));}
-  const rank=x=>(x.overdue?8:0)+(x.silent?3:0)+(x.drop?2:0)+(x.decline?1:0)+(x.pickupFlag?2:0)+(x.rtoFlag?1:0)+(x.ndrFlag?1:0);
+  const rank=x=>(x.overdue?8:0)+(x.silent?3:0)+(x.drop?2:0)+(x.decline?1:0)+(x.pickupFlag?2:0)+(x.rtoFlag?1:0)+(x.ndrFlag?1:0)+(x.lowPick?3:0);
   const S={
     impact:(a,b)=>(rank(b)-rank(a))||(b.impact-a.impact),
     drop:(a,b)=>(a.eligible?a.deltaPct??999:999)-(b.eligible?b.deltaPct??999:999),
@@ -689,6 +706,7 @@ function renderTable(rows){
     const mtime=`<div class="mtime"><span class="mt-usual">${x.etime!=null?"~"+hhmm(x.etime):"—"}</span>${mstat}</div>`;
     const o=x.op||{pp:0,rrate:0,ndr:0};
     const opChips=[
+      x.pickRate!=null?`<span class="opchip ${x.lowPick?'hot':''}" title="${fmt(x.pickedWin)} of ${fmt(state.from===state.to?x.today:x.periodVol)} picked up">📦 ${(x.pickRate*100).toFixed(0)}%</span>`:"",
       o.pp>0?`<span class="opchip ${x.pickupFlag?'hot':''}" title="${o.pp} awaiting pickup">🚚 ${o.pp}</span>`:"",
       o.rrate>0?`<span class="opchip ${x.rtoFlag?'hot':''}" title="RTO rate${o.trr?' · '+o.trr:''}">↩ ${(o.rrate*100).toFixed(0)}%</span>`:"",
       (OPS.ndrEnabled&&o.ndr>0)?`<span class="opchip ${x.ndrFlag?'hot':''}" title="${o.ndr} NDR-tagged${o.tnr?' · '+o.tnr:''}">✉ ${o.ndr}</span>`:"",
@@ -790,7 +808,7 @@ function render(){
   buildSelects(a.rows); renderKPIs(a); renderKAMs(a.rows); renderAMs(a.rows); renderFilters(); renderTable(a.rows);
 }
 
-const FLAG_LABEL={overdue:"Overdue · call now",drop:"CALL · drops",silent:"Went silent",decline:"3-day slide",behind:"Behind target pace",pickup:"Pickup pending",rto:"High RTO",ndr:"Open NDRs"};
+const FLAG_LABEL={overdue:"Overdue · call now",drop:"CALL · drops",silent:"Went silent",decline:"3-day slide",behind:"Behind target pace",lowpick:"Low pick-up",pickup:"Pickup pending",rto:"High RTO",ndr:"Open NDRs"};
 function scrollToTable(){
   const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion:reduce)").matches;
   document.querySelector(".tablecard").scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"});
@@ -823,11 +841,12 @@ function amBlock(rs, indent){
   const today=rs.reduce((s,r)=>s+r.today,0), base=rs.reduce((s,r)=>s+r.baseline,0);
   const dPct=base?((today-base)/base*100):0;
   let out=`${indent}■ ${amName(rs[0].ae)} — ${fmt(today)} today (${fmtPct(dPct)} vs base)\n`;
-  const acts=rs.filter(r=>r.overdue||r.silent||r.drop||r.decline||r.behindPace||r.pickupFlag||r.rtoFlag||r.ndrFlag).sort((a,b)=>b.impact-a.impact);
+  const acts=rs.filter(r=>r.overdue||r.silent||r.drop||r.decline||r.behindPace||r.pickupFlag||r.rtoFlag||r.ndrFlag||r.lowPick).sort((a,b)=>b.impact-a.impact);
   if(!acts.length){ out+=`${indent}   all observe / on track\n`; }
   acts.forEach(r=>{
     const f=[]; if(r.overdue)f.push(`OVERDUE — call (usual ${hhmm(r.etime)})`); if(r.silent)f.push("SILENT"); if(r.drop)f.push(`CALL drop ${fmtPct(r.deltaPct)}`);
     if(r.decline)f.push("3-day slide"); if(r.behindPace)f.push(`pace ${r.pacePct.toFixed(0)}%`);
+    if(r.lowPick)f.push(`pick-up ${(r.pickRate*100).toFixed(0)}%`);
     if(r.pickupFlag)f.push(`pickup pending ${r.op.pp}`); if(r.rtoFlag)f.push(`RTO ${(r.op.rrate*100).toFixed(0)}%`); if(r.ndrFlag)f.push(`NDR open ${r.op.ndr}`);
     out+=`${indent}   - ${r.n}: ${f.join(", ")} (today ${fmt(r.today)} vs base ${fmt1(r.baseline)})\n`;
   });
@@ -926,7 +945,7 @@ function handleAccounts(file,el){
 // assemble DATA from the cached daily aggregation + current targets + directory; any-order uploads
 function buildData(){
   if(!RAW){ render(); return; }
-  const {counts, meta, amName, firstTime, ops, n} = RAW;
+  const {counts, meta, amName, firstTime, ops, picked, n} = RAW;
   let dates=[...new Set(Object.values(counts).flatMap(o=>Object.keys(o)))].sort();
   const cb=cycleBounds(dates[dates.length-1]);
   dates=dates.filter(d=> d>=cb.start && d<=cb.end);
@@ -954,6 +973,8 @@ function buildData(){
   const sellers=universe.map(se=>{
     const v=new Array(dates.length).fill(0);
     const c=counts[se]; if(c) for(const [d,q] of Object.entries(c)) if(di(d)>=0) v[di(d)]=q;
+    const pk=new Array(dates.length).fill(0);
+    const pc=picked[se]; if(pc) for(const [d,q] of Object.entries(pc)) if(di(d)>=0) pk[di(d)]=q;
     const m=meta[se], dir=DIR[se];
     const ae=(dir&&dir.ae)||(m&&m.ae)||resolveAmEmail(savedAM[se]||"")||"";
     const kam=(dir&&dir.kn)||(m&&m.kam)||savedKAM[se]||"";
@@ -969,7 +990,7 @@ function buildData(){
       rrate:o.tot?o.rto/o.tot:0, nrate:o.tot?o.ndr/o.tot:0, trr:topKey(o.rr), tnr:topKey(o.nr)};
     const t = savedTargets[se]!=null ? savedTargets[se] : (haveDir ? 0 : null);
     return {e:se, n:(m&&m.n)||se, ae, c:coh, z:zone, kam,
-            t, v, etime, dtime, nd:histTimes.length, ftoday, ops:opsSummary};
+            t, v, pk, etime, dtime, nd:histTimes.length, ftoday, ops:opsSummary};
   });
   DATA={dates, amByEmail:{...amName, ...DIR_AM}, sellers,
         meta:{pullDate:pull,lastCompleteDate:lastComplete,cycleStart:dates[0],pullTime}};
@@ -988,8 +1009,10 @@ function handleManifest(file,el){
   const pick=(row,keys)=>{for(const k of keys){if(row[k]!=null&&row[k]!=="")return row[k];}return "";};
   const firstTime={};   // seller -> {date: earliest minute-of-day}
   const ops={};         // seller -> {pp,rto,ndr,tot, rr:{reason:count}, nr:{reason:count}}
+  const picked={};      // seller -> {date: count of shipments picked up}, keyed by manifest date
   const has=v=>{ const s=String(v).trim(); return s && s.toLowerCase()!=="nan"; };
   const PICKUP_PENDING=new Set(["Order Placed","Pickup Pending","Pickup Scheduled","Out for Pickup","Not Picked","Pickup Cancelled"]);
+  const NOT_PICKED=new Set(["Order Placed","Pickup Pending","Pickup Scheduled","Out for Pickup","Not Picked","Pickup Cancelled","Cancelled","Seller Cancelled"]);
   const NDR_TERMINAL=new Set(["Delivered","Cancelled","Seller Cancelled","Lost In Audit","Damaged"]);
   const toMin=t=>{ t=String(t).trim().toUpperCase(); const m=t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/); if(!m) return null;
     let h=+m[1], mi=+m[2]; if(m[3]==="PM"&&h<12)h+=12; if(m[3]==="AM"&&h===12)h=0; return h*60+mi; };
@@ -1007,6 +1030,7 @@ function handleManifest(file,el){
         const o=(ops[se] ||= {pp:0,rto:0,ndr:0,tot:0,rr:{},nr:{}}); o.tot++;
         const st=String(pick(row,["shipment_status"])).trim();
         if(PICKUP_PENDING.has(st)) o.pp++;
+        if(st && !NOT_PICKED.has(st)) (picked[se] ||= {})[md]=(picked[se][md]||0)+1;   // picked = moved past pickup
         const isRto=st.toUpperCase().startsWith("RTO");
         if(isRto){ o.rto++; const rr=pick(row,["rto_reason"]); if(has(rr)) o.rr[rr]=(o.rr[rr]||0)+1; }
         const ndrReason=pick(row,["latest_ndr_reason"]);
@@ -1020,7 +1044,7 @@ function handleManifest(file,el){
       el.querySelector(".sub").textContent=`reading… ${n.toLocaleString()} rows`;
     },
     complete:()=>{
-      RAW={counts, meta, amName, firstTime, ops, n};
+      RAW={counts, meta, amName, firstTime, ops, picked, n};
       el.classList.remove("busy"); el.classList.add("ok");
       let dts=[...new Set(Object.values(counts).flatMap(o=>Object.keys(o)))].sort();
       el.querySelector(".sub").textContent=`${n.toLocaleString()} rows · ${dts.length} days`;
