@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manifest Watch — daily seller board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<style>
+:root{
+  --bg:#EBEEF4; --surface:#FFFFFF; --surface-2:#F6F8FC;
+  --ink:#151A23; --ink-soft:#39424F; --muted:#69737F; --faint:#97A0AC;
+  --line:#E3E8F0; --line-strong:#CCD4E0;
+  --accent:#4338CA; --accent-soft:#ECEDFE; --accent-ink:#2D2891;
+  --crit:#D02D2D; --crit-bg:#FCEBEB; --crit-line:#F3C9C9;
+  --warn:#A86808; --warn-raw:#EFA316; --warn-bg:#FFF4DD; --warn-line:#F2DCA6;
+  --good:#1B8A4E; --good-bg:#E6F5ED; --good-line:#BDE5CD;
+  --shadow-sm:0 1px 2px rgba(20,26,34,.05);
+  --shadow:0 1px 2px rgba(20,26,34,.05), 0 10px 28px -16px rgba(20,26,34,.22);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1340px;margin:0 auto;padding:22px 22px 64px}
+
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
+.brand .eyebrow{font-family:"Space Grotesk";font-weight:600;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 4px}
+.brand h1{font-family:"Space Grotesk";font-weight:700;font-size:26px;letter-spacing:-.01em;margin:0;color:var(--ink)}
+.brand .asof{margin:6px 0 0;color:var(--muted);font-size:13px}
+.brand .asof b{color:var(--ink-soft);font-weight:600}
+.controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600}
+select,.btn{font-family:inherit;font-size:13px}
+select{appearance:none;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 30px 8px 11px;color:var(--ink);font-weight:500;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M3 4.5L6 7.5L9 4.5' stroke='%2369737F' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
+.btn{background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 13px;color:var(--ink-soft);font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:border-color .12s,background .12s}
+.btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.btn svg{width:15px;height:15px}
+.btn.mini{padding:6px 9px;font-size:11.5px;font-weight:600}
+.am-drr{display:flex;gap:14px;margin-top:8px;font-size:11.5px;color:var(--muted)}
+.am-drr b{color:var(--ink-soft);font-family:"IBM Plex Mono";font-weight:600}
+.hashelp{text-decoration:underline dotted var(--line-strong);text-underline-offset:3px;cursor:help}
+thead th[title]{cursor:help}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+.source{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px 15px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.source .pill{font-size:11px;font-weight:600;letter-spacing:.04em;padding:4px 10px;border-radius:999px;background:var(--good-bg);color:var(--good);border:1px solid var(--good-line);white-space:nowrap}
+.source .files{display:flex;gap:9px;flex-wrap:wrap;flex:1}
+.filedrop{position:relative;display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--line-strong);border-radius:10px;padding:7px 12px;cursor:pointer;background:var(--surface-2);transition:border-color .12s}
+.filedrop:hover{border-color:var(--accent)}
+.filedrop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.filedrop .lbl{font-size:12px;font-weight:600;color:var(--ink-soft)}
+.filedrop .sub{font-size:10.5px;color:var(--faint)}
+.filedrop .dot{width:7px;height:7px;border-radius:50%;background:var(--line-strong)}
+.filedrop.ok{border-style:solid;border-color:var(--good-line);background:var(--good-bg)}
+.filedrop.ok .dot{background:var(--good)}
+.filedrop.busy{border-color:var(--warn-raw)}
+.source .note{font-size:12px;color:var(--muted);width:100%}
+.source .note code{font-family:"IBM Plex Mono";font-size:11px;background:var(--surface-2);border:1px solid var(--line);padding:1px 5px;border-radius:5px;color:var(--ink-soft)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.help{margin-bottom:20px;border:1px solid var(--line);background:var(--surface);border-radius:12px;overflow:hidden}
+.help summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;font-family:"Space Grotesk";font-weight:600;color:var(--ink)}
+.help summary::-webkit-details-marker{display:none}
+.help-ttl{font-size:14px}
+.help-cue{font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+.help-body{padding:0 16px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-soft);line-height:1.55}
+.help-body p{margin:12px 0}
+.help-body ol{margin:12px 0;padding-left:20px}
+.help-body li{margin:6px 0}
+.help-fine{font-size:12px;color:var(--faint)}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px 15px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;cursor:pointer;user-select:none;transition:border-color .12s,box-shadow .12s,transform .08s}
+.kpi:hover{border-color:var(--accent)}
+.kpi:active{transform:translateY(1px)}
+.kpi.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),var(--shadow)}
+.kpi::after{content:"";position:absolute;right:11px;top:12px;width:7px;height:7px;border-right:2px solid var(--line-strong);border-bottom:2px solid var(--line-strong);transform:rotate(-45deg);opacity:.7}
+.kpi:hover::after,.kpi.sel::after{border-color:var(--accent)}
+.kpi .k-label{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:9px}
+.kpi .k-val{font-family:"Space Grotesk";font-weight:700;font-size:27px;line-height:1;letter-spacing:-.01em}
+.kpi .k-sub{font-size:12px;color:var(--muted);margin-top:7px}
+.kpi .k-sub .up{color:var(--good);font-weight:600}.kpi .k-sub .down{color:var(--crit);font-weight:600}
+.kpi .accentbar{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.kpi.crit .accentbar{background:var(--crit)}.kpi.crit .k-val{color:var(--crit)}
+.kpi.warn .accentbar{background:var(--warn-raw)}.kpi.warn .k-val{color:var(--warn)}
+
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 2px 11px}
+.sec-head h2{font-family:"Space Grotesk";font-weight:600;font-size:15px;letter-spacing:.02em;margin:0;color:var(--ink)}
+.sec-head .hint{font-size:12px;color:var(--muted)}
+
+.am-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
+.am-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px;box-shadow:var(--shadow-sm);cursor:pointer;transition:border-color .12s}
+.am-card:hover{border-color:var(--accent)}
+.am-card.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),var(--shadow)}
+.am-card .am-name{font-weight:700;font-size:14px;margin-bottom:2px}
+.am-card .am-meta{font-size:11.5px;color:var(--muted);margin-bottom:11px}
+.am-card .am-vol{font-family:"Space Grotesk";font-weight:700;font-size:22px;letter-spacing:-.01em}
+.am-card .am-delta{font-size:12px;font-weight:600;margin-left:7px}
+.am-card .am-stats{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+.tag{font-size:11px;font-weight:600;padding:3px 8px;border-radius:7px;background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line)}
+.tag.crit{background:var(--crit-bg);color:var(--crit);border-color:var(--crit-line)}
+.tag.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.tag.good{background:var(--good-bg);color:var(--good);border-color:var(--good-line)}
+.up{color:var(--good)}.down{color:var(--crit)}
+
+.toolbar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+.filterbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 2px 13px}
+.filterbar .fb-label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);border:1px solid var(--accent);cursor:pointer;font-family:inherit}
+.chip .x{font-size:14px;line-height:1;color:var(--accent);opacity:.7}
+.chip:hover .x{opacity:1}
+.chip.clear{background:transparent;color:var(--muted);border-color:var(--line-strong)}
+.chip.clear:hover{border-color:var(--accent);color:var(--accent-ink)}
+.search{flex:1;min-width:170px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 12px;align-self:stretch}
+.search input{border:0;outline:0;background:transparent;font-family:inherit;font-size:13px;width:100%;color:var(--ink)}
+.search svg{width:15px;height:15px;color:var(--faint);flex-shrink:0}
+
+.tablecard{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.tablescroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:1420px}
+thead th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--surface-2);white-space:nowrap;position:sticky;top:0;z-index:2}
+thead th.num{text-align:right}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr.main{cursor:pointer}
+tbody tr.main:hover{background:var(--surface-2)}
+.s-name{font-weight:600;color:var(--ink)}
+.s-cohort{font-size:9.5px;letter-spacing:.04em;color:var(--faint);font-weight:600;margin-left:7px;text-transform:uppercase}
+.s-email{font-size:11px;color:var(--faint)}
+.s-am{font-size:12px;color:var(--muted)}
+td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-numeric:tabular-nums;font-weight:500}
+.delta{font-weight:600;font-family:"IBM Plex Mono";white-space:nowrap}
+.delta.pos{color:var(--good)}.delta.neg{color:var(--crit)}.delta.flat{color:var(--muted)}
+.mtd-wrap{display:flex;align-items:center;gap:9px;justify-content:flex-end}
+.mtd-bar{width:54px;height:6px;border-radius:4px;background:var(--line);overflow:hidden;flex-shrink:0}
+.mtd-bar i{display:block;height:100%;border-radius:4px}
+.badges{display:flex;gap:5px;flex-wrap:wrap}
+.badge{font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.badge.silent{background:var(--crit);color:#fff}
+.badge.overdue{background:#9A1414;color:#fff;box-shadow:0 0 0 2px rgba(154,20,20,.15)}
+.badge.drop{background:var(--crit-bg);color:var(--crit);border:1px solid var(--crit-line)}
+.badge.surge{background:var(--good-bg);color:var(--good);border:1px solid var(--good-line)}
+.badge.decline{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line)}
+.badge.pace{background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line-strong)}
+.badge.pickup{background:#FFF0E0;color:#9A4A00;border:1px solid #F2D2AE}
+.badge.rto{background:#F3E8FF;color:#6B21A8;border:1px solid #E3CDF7}
+.badge.ndr{background:#FDE7F0;color:#9B1B52;border:1px solid #F4C4D8}
+.badge.ok{background:var(--surface-2);color:var(--faint);border:1px solid var(--line)}
+.mtime{display:flex;flex-direction:column;gap:2px;line-height:1.2}
+.mt-usual{font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-soft);font-weight:500}
+.mt-stat{font-size:10.5px;font-weight:600}
+.mt-ok{color:var(--good)} .mt-late{color:var(--crit)} .mt-wait{color:var(--faint)}
+.opcell{display:flex;gap:5px;flex-wrap:wrap}
+.opchip{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line);white-space:nowrap}
+.opchip.hot{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.spark{display:block}
+.caret{display:inline-block;width:9px;color:var(--faint);transition:transform .15s}
+tr.main.open .caret{transform:rotate(90deg);color:var(--accent)}
+tr.detail td{background:var(--surface-2);padding:0;border-bottom:1px solid var(--line)}
+.detail-inner{padding:14px 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 26px}
+.dm{display:flex;flex-direction:column;gap:2px}
+.dm .dl{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.dm .dv{font-family:"IBM Plex Mono";font-weight:600;font-size:15px;color:var(--ink)}
+.dm .dv small{font-family:"IBM Plex Sans";font-weight:500;color:var(--muted);font-size:11px}
+.empty{padding:46px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink-soft);font-size:15px;margin-bottom:4px;font-family:"Space Grotesk"}
+footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-height:1.6}
+
+@media (max-width:980px){.kpis{grid-template-columns:repeat(2,1fr)}.am-grid{grid-template-columns:repeat(2,1fr)}.detail-inner{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.wrap{padding:16px 13px 50px}.am-grid{grid-template-columns:1fr}.brand h1{font-size:22px}}
+.gate{position:fixed;inset:0;z-index:1000;background:rgba(20,26,34,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+.gate.hidden{display:none}
+.gate-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:30px 28px;width:100%;max-width:380px}
+.gate-eyebrow{font-family:"Space Grotesk";font-weight:600;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.gate-card h2{font-family:"Space Grotesk";font-size:21px;margin:0 0 6px;color:var(--ink)}
+.gate-card>p{margin:0 0 18px;color:var(--muted);font-size:13px}
+.gate-card label{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:13px}
+.gate-card input{display:block;width:100%;margin-top:5px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;font-family:inherit;font-size:14px;color:var(--ink)}
+.gate-card input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.gate-btn{width:100%;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer;margin-top:4px}
+.gate-btn:hover{background:var(--accent-ink)}
+.gate-err{color:var(--crit);font-size:12px;min-height:16px;margin-bottom:6px;font-weight:500}
+.gate-fine{margin-top:14px!important;font-size:11px;color:var(--faint)}
+.userchip{font-size:12px;color:var(--muted)}
+.userchip b{color:var(--ink-soft);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <p class="eyebrow">Seller manifestation · daily</p>
+      <h1>Manifest Watch</h1>
+      <p class="asof" id="asofLine">—</p>
+    </div>
+    <div class="controls">
+      <div class="field"><label for="fromSel" title="Start of the window used for Average DRR and totals">From</label><select id="fromSel"></select></div>
+      <div class="field"><label for="toSel" title="End of the window — also the day used for today's CALL / overdue flags">To</label><select id="toSel"></select></div>
+      <div class="field"><label>&nbsp;</label><span><button class="btn mini" id="presetDay" title="View a single day (From = To = last complete day)">Single day</button> <button class="btn mini" id="presetCycle" title="View the whole business cycle to date">Cycle</button></span></div>
+      <div class="field"><label for="baseSel" title="What today is compared against to flag a CALL. Rolling 7-day avg = the seller's own average over the previous 7 days; Cycle-to-date avg = average per day since the 26th (matches your macro).">Baseline</label>
+        <select id="baseSel">
+          <option value="roll7">Rolling 7-day avg</option>
+          <option value="mtd">Cycle-to-date avg (your macro)</option>
+        </select></div>
+      <div class="field"><label for="floorSel" title="Sellers below this average daily volume are never flagged, so tiny accounts don't create noise.">Min DRR to flag</label>
+        <select id="floorSel"><option value="0">All sellers</option><option value="2">≥ 2/day</option><option value="5" selected>≥ 5/day</option><option value="10">≥ 10/day</option></select></div>
+      <button class="btn" id="copyBtn" title="Copy a plain-text rundown to share with the team">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy summary
+      </button>
+    </div>
+  </div>
+
+  <div class="source" id="sourceBar">
+    <span class="pill" id="sourcePill">Awaiting upload</span>
+    <div class="files">
+      <label class="filedrop" id="fdManifest"><span class="dot"></span><span><span class="lbl">Daily report</span><br><span class="sub">raw shipment CSV</span></span><input type="file" accept=".csv" data-kind="manifest"></label>
+      <label class="filedrop" id="fdTargets"><span class="dot"></span><span><span class="lbl">Targets</span><br><span class="sub">seller + target</span></span><input type="file" accept=".csv,.xlsx,.xls" data-kind="targets"></label>
+      <label class="filedrop" id="fdAccounts"><span class="dot"></span><span><span class="lbl">Accounts (AM/KAM)</span><br><span class="sub">optional · directory</span></span><input type="file" accept=".csv,.xlsx,.xls" data-kind="accounts"></label>
+      <button class="btn" id="dlBtn" title="Optional — save the processed data as a JSON backup">⬇ Save backup</button>
+    </div>
+    <p class="note" id="sourceNote">Everything runs in your browser — nothing is uploaded anywhere. Drop the <b>Daily report</b> and your <b>Target</b> file (and optionally the <b>Accounts</b> directory). With the directory, every account in it is shown and accounts without a target count as target 0. KAM fills in from the directory's KAM column when you add it.</p>
+  </div>
+
+  <details class="help" id="helpCard" open>
+    <summary><span class="help-ttl">How to use this dashboard</span><span class="help-cue">show / hide</span></summary>
+    <div class="help-body">
+      <p><b>Everything runs in your browser — nothing is uploaded or stored anywhere.</b> The board stays empty until you load your own files. Your files never leave your computer; the only external request is a one-time fetch of two open-source CSV/Excel parsers on your first upload.</p>
+      <ol>
+        <li>Drop your <b>Daily report</b> (the raw shipment CSV) and your <b>Target</b> file. Optionally add the <b>Accounts (AM/KAM)</b> directory file.</li>
+        <li>The board fills in instantly — KPIs, per-account flags (CALL drops, went silent, overdue calls, behind pace, pickup-pending, RTO), AM &amp; KAM scorecards, and a sortable account table.</li>
+        <li>Use <b>From / To</b> to view a single day or any range. Hover any column heading or badge to see what it means. Click a KPI tile, an AM/KAM card, or use the filters to narrow the table. <b>Copy summary</b> gives a shareable text rundown.</li>
+      </ol>
+      <p class="help-fine">Upload files in any order, and re-drop just the daily CSV each day — targets and accounts stay until you change them. With the Accounts directory loaded, every account in it is shown and accounts without a target are treated as <b>target 0</b>. KAM fills in from the directory's KAM column as you populate it. Business cycle runs the 26th → 25th.</p>
+    </div>
+  </details>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div id="kamWrap" style="display:none">
+    <div class="sec-head"><h2>Key Account Manager rollup</h2><span class="hint">Tap to filter the board to a KAM's book</span></div>
+    <div class="am-grid" id="kamGrid"></div>
+  </div>
+
+  <div class="sec-head"><h2>Account Manager scorecard</h2><span class="hint">Tap a manager to filter · counts use the min-DRR floor</span></div>
+  <div class="am-grid" id="amGrid"></div>
+
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="searchInput" placeholder="Search seller or email…" aria-label="Search seller">
+    </div>
+    <div class="field"><label for="kamSel">Key AM</label><select id="kamSel"></select></div>
+    <div class="field"><label for="amSel">Manager</label><select id="amSel"></select></div>
+    <div class="field"><label for="sortSel">Sort by</label>
+      <select id="sortSel">
+        <option value="impact">Volume impact</option>
+        <option value="drop">Biggest drops</option>
+        <option value="surge">Biggest surges</option>
+        <option value="pace">Behind target</option>
+        <option value="vol">Today's volume</option>
+        <option value="name">Seller name</option>
+      </select></div>
+  </div>
+
+  <div id="activeFilters" class="filterbar" style="display:none"></div>
+
+  <div class="tablecard">
+    <div class="tablescroll">
+      <table>
+        <thead><tr>
+          <th>Seller</th>
+          <th title="Key Account Manager — the senior owner above the AM, from your Target sheet."><span class="hashelp">Key AM</span></th>
+          <th title="Account Manager who owns this seller."><span class="hashelp">Manager</span></th>
+          <th class="num" id="thVol" title="Shipments on the 'To' day (single-day view), or the total over the selected From–To window (range view)."><span class="hashelp" id="thVolText">Today</span></th>
+          <th title="The seller's usual first-manifest time (median of recent days), with today's status: done, awaiting, or overdue."><span class="hashelp">Manifest time</span></th>
+          <th class="num" title="Average shipments per day over the selected From–To period (Avg DRR)."><span class="hashelp">Avg DRR</span></th>
+          <th class="num" title="Target daily run rate · target volume (Target DRR × days in the cycle)."><span class="hashelp">Target</span></th>
+          <th class="num" title="Today vs the seller's baseline. Beyond ±15% triggers a CALL."><span class="hashelp">Δ vs base</span></th>
+          <th class="num" title="Week-on-week: this week's average DRR vs last week's."><span class="hashelp">WoW</span></th>
+          <th title="Daily shipments over the last 14 days; the dashed line is the baseline."><span class="hashelp">14-day trend</span></th>
+          <th class="num" title="Cycle-to-date DRR ÷ Target DRR. Under 90% = behind pace."><span class="hashelp">Pace</span></th>
+          <th title="Fulfilment health: 🚚 shipments awaiting pickup · ↩ RTO (return) rate. Open the row for the full breakdown including NDR rate."><span class="hashelp">Ops</span></th>
+          <th title="Action flags for this seller."><span class="hashelp">Status</span></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    Manifest Watch · business month 26th → 25th · only accounts in the Target sheet are shown (other-org accounts excluded).<br>
+    CALL = today more than ±15% off the baseline DRR (your macro's rule) · also flags went-silent, 3-day slide, behind target pace.<br>
+    DRR = total shipments ÷ days in file. Target volume = Target DRR × days in the cycle. WoW = this week's DRR vs last week's.<br>
+    Manifest time = each seller's usual first-manifest time (median of recent days). <b>Overdue · call</b> = on today's pull they're at zero and it's past the time they start on 80% of days. Behaviour flags apply only above the min-DRR floor. Click any row for the full breakdown.
+  </footer>
+</div>
+
+<script>
+/* ====== embedded real data (June 1–24 pull) ====== */
+const EMBED = {dates:[],amByEmail:{},sellers:[],meta:{}};
+
+/* ====== KEY ACCOUNT MANAGER ======
+   Primary source: a KAM column in June_Target.xlsx (header containing "KAM"
+   or "Key Account Manager"), read per seller on upload. Drop the updated
+   targets file and the KAM column/filter/rollup populate automatically.
+   The map below is an optional fallback keyed by AM email — fill it only if
+   you'd rather map the 11 AMs to KAMs once instead of using the file. */
+const KAM_MAP = {
+  "adarshtiwari1.vc@flipkart.com":   "",
+  "afshanfathima.vc@flipkart.com":   "",
+  "arunkumar28.vc@flipkart.com":     "",
+  "arunkumarrathod.vc@flipkart.com": "",
+  "derangulaprasad.vc@flipkart.com": "",
+  "dhanusha1.vc@flipkart.com":       "",
+  "hajirashaheen.vc@flipkart.com":   "",
+  "mamapradhan.vc@flipkart.com":     "",
+  "mohitm31.vc@flipkart.com":        "",
+  "rohith.s3@flipkart.com":          "",
+  "vishwanathum.vc@flipkart.com":    "",
+};
+const kamOf = s => (s.kam && String(s.kam).trim()) || KAM_MAP[s.ae] || "";
+
+/* thresholds for the fulfilment-ops flags (cumulative over the file) */
+const OPS = { pickupMin:5, rtoRate:0.20, rtoMinShip:10, ndrMin:5, ndrEnabled:false };
+
+/* ====== targets come entirely from targets.csv in the repo (no data embedded here) ====== */
+const TARGETS = {};
+
+/* ====== state ====== */
+let DATA = normalizeEmbed(EMBED);
+let savedTargets = {};               // seller_email -> target DRR
+let savedKAM = {};                   // seller_email -> KAM name
+let savedAM  = {};                   // seller_email -> AM name (fallback for accounts absent from the daily file)
+// targets/AM/KAM come from the files you upload; nothing is fetched or sent anywhere
+Object.entries(TARGETS).forEach(([e,a])=>{ if(a[0]!=null) savedTargets[e]=a[0]; if(a[1]) savedAM[e]=a[1]; });
+DATA.sellers.forEach(s=>{ if(s.t!=null) savedTargets[s.e]=s.t; });
+
+let DIR={}, DIR_AM={}, DIR_KAM={};   // accounts directory: email->{ae,kn,c,z}, amEmail->name, kamEmail->name
+let RAW=null;                        // cached aggregation from the daily CSV (so target/accounts uploads don't re-parse it)
+const state = {from:null, to:null, baseline:"roll7", floor:5, kam:"__all__", am:"__all__", flag:"all", sort:"impact", q:"", open:new Set()};
+
+function normalizeEmbed(e){
+  return {dates:e.dates, amByEmail:e.amByEmail||{}, sellers:e.sellers, meta:e.meta||{}};
+}
+
+/* ====== analysis ====== */
+function mean(a){return a.length? a.reduce((x,y)=>x+y,0)/a.length:0;}
+const iso = d => d.toISOString().slice(0,10);
+const dayDiff = (a,b) => Math.round((new Date(a+"T00:00:00")-new Date(b+"T00:00:00"))/86400000);
+// business month runs 26th -> 25th of the next month
+function cycleBounds(asOf){
+  const d=new Date(asOf+"T00:00:00"); let y=d.getFullYear(), m=d.getMonth();
+  if(d.getDate()<26){ m-=1; if(m<0){m=11;y--;} }
+  return {start:iso(new Date(y,m,26)), end:iso(new Date(y,m+1,25))};
+}
+
+function analyse(){
+  const {dates,sellers}=DATA;
+  if(!dates.length) return {rows:[],asOf:null,idx:-1,cycleStart:null,cycleEnd:null,cycleLen:0,daysElapsed:0,remaining:0,from:null,to:null,winDays:0};
+  const last=dates[dates.length-1];
+  const lastComplete = (DATA.meta.lastCompleteDate && dates.includes(DATA.meta.lastCompleteDate)) ? DATA.meta.lastCompleteDate : last;
+  // period window [from, to]; "to" is the day-specific anchor (asOf)
+  let to = state.to && dates.includes(state.to) ? state.to : lastComplete;
+  let from = state.from && dates.includes(state.from) ? state.from : (DATA.meta.cycleStart && dates.includes(DATA.meta.cycleStart) ? DATA.meta.cycleStart : dates[0]);
+  if(from>to) from=to;
+  state.from=from; state.to=to;
+  const asOf=to;
+  const idx=dates.indexOf(asOf);
+  const winDates=dates.filter(d=> d>=from && d<=to);
+  const winDays=winDates.length||1;
+  const {start:cycleStart, end:cycleEnd}=cycleBounds(asOf);
+  const monthDates=dates.filter(d=> d>=cycleStart && d<=asOf);
+  const cycleLen=dayDiff(cycleEnd,cycleStart)+1;            // ~30/31 days
+  const daysElapsed=Math.max(1,dayDiff(asOf,cycleStart)+1);
+  const remaining=Math.max(0,cycleLen-daysElapsed);
+  const pullIdx=dates.indexOf(DATA.meta.pullDate);
+  const pullTime=DATA.meta.pullTime!=null?DATA.meta.pullTime:null;
+
+  const rows=sellers.map(s=>{
+    const v=s.v, today=v[idx]||0;
+    const prev7=v.slice(Math.max(0,idx-7),idx);
+    const roll7=mean(prev7);
+    const monthBefore=monthDates.slice(0,-1).map(d=>v[dates.indexOf(d)]||0);
+    const mtdAvg=mean(monthBefore.length?monthBefore:[0]);
+    const baseline = state.baseline==="mtd" ? mtdAvg : roll7;
+
+    let deltaPct=null;
+    if(baseline>0) deltaPct=(today-baseline)/baseline*100;
+    else if(today>0) deltaPct=Infinity;
+
+    const eligible = baseline>=state.floor;
+    const silent = eligible && today===0 && baseline>0;
+    const drop   = eligible && !silent && deltaPct!==null && deltaPct!==Infinity && deltaPct<=-15;
+    const surge  = eligible && (deltaPct===Infinity || (deltaPct!==null && deltaPct>=15));
+    let decline=false;
+    if(eligible && idx>=2) decline = v[idx]<v[idx-1] && v[idx-1]<v[idx-2] && v[idx-2]>0;
+
+    // cycle-to-date through asOf
+    const volMTD=monthDates.reduce((a,d)=>a+(v[dates.indexOf(d)]||0),0);
+    const drrMTD= daysElapsed? volMTD/daysElapsed : 0;
+    const tDRR=s.t!=null?s.t:null;
+    const tVol=tDRR!=null?tDRR*cycleLen:null;
+    const volLeft=tVol!=null?tVol-volMTD:null;
+    const drrNeeded=(tVol!=null&&remaining>0)?Math.max(0,volLeft/remaining):null;
+    const pacePct=tDRR? drrMTD/tDRR*100 : null;
+    const gap=tDRR!=null? tDRR-drrMTD : null;
+    const behindPace = eligible && pacePct!=null && pacePct<90 && drrMTD>0;
+
+    // WoW DRR growth
+    const last7=mean(v.slice(Math.max(0,idx-6),idx+1));
+    const wprev=v.slice(Math.max(0,idx-13),Math.max(0,idx-6));
+    const prevW=mean(wprev);
+    const wow = prevW>=state.floor ? (last7-prevW)/prevW*100 : null;
+
+    // overall DRR across all days in file (total shipments / total days)
+    const overallDRR = dates.length ? v.reduce((a,b)=>a+b,0)/dates.length : 0;
+    // Average DRR over the selected period [from,to]
+    const winVol = winDates.reduce((a,d)=>a+(v[dates.indexOf(d)]||0),0);
+    const avgDRR = winVol/winDays;
+
+    // manifest-time prediction & overdue alert (evaluated on the pull date)
+    const todayCnt = pullIdx>=0 ? (v[pullIdx]||0) : 0;
+    const manifestedToday = todayCnt>0;
+    const overdue = eligible && !manifestedToday && s.etime!=null && s.dtime!=null
+                    && pullTime!=null && s.dtime < pullTime;
+
+    // fulfilment-ops flags
+    const op = s.ops||{pp:0,rto:0,ndr:0,tot:0,rrate:0,trr:"",tnr:""};
+    const pickupFlag = eligible && op.pp>=OPS.pickupMin;
+    const rtoFlag    = eligible && op.tot>=OPS.rtoMinShip && op.rrate>=OPS.rtoRate;
+    const ndrFlag    = OPS.ndrEnabled && eligible && op.ndr>=OPS.ndrMin;
+
+    return {...s, kam:kamOf(s), today, roll7, mtdAvg, baseline, deltaPct, eligible, silent, drop, surge, decline,
+      volMTD, drrMTD, overallDRR, avgDRR, periodVol:winVol, tDRR, tVol, volLeft, drrNeeded, pacePct, gap, behindPace, wow,
+      manifestedToday, overdue, op, pickupFlag, rtoFlag, ndrFlag,
+      impact: baseline-today,
+      spark: v.slice(Math.max(0,idx-13), idx+1)};
+  });
+  return {rows, asOf, idx, cycleStart, cycleEnd, cycleLen, daysElapsed, remaining, pullTime, from, to, winDays};
+}
+
+/* ====== format ====== */
+const fmt = n => Math.round(n).toLocaleString("en-IN");
+const fmt1 = n => (Math.round(n*10)/10).toLocaleString("en-IN",{minimumFractionDigits:1,maximumFractionDigits:1});
+const fmtPct = p => p==null?"—": p===Infinity?"new":(p>=0?"+":"")+p.toFixed(0)+"%";
+const niceDate = d => new Date(d+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"});
+const hhmm = m => (m==null)?"—":`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+const amName = email => DATA.amByEmail[email] || (email? email.split("@")[0] : "Unassigned");
+
+function sparkline(vals, base){
+  const w=120,h=34,pad=3; if(!vals.length) return "";
+  const max=Math.max(...vals,base,1);
+  const x=i=>pad+i*(w-2*pad)/Math.max(1,vals.length-1);
+  const y=v=>h-pad-(v)/(max)*(h-2*pad);
+  const pts=vals.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const ay=y(base).toFixed(1), last=vals.length-1, lastV=vals[last];
+  const col=lastV===0?"var(--crit)":lastV>=base*1.15?"var(--good)":lastV<=base*0.85?"var(--crit)":"var(--accent)";
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="14-day trend">
+    <line x1="${pad}" y1="${ay}" x2="${w-pad}" y2="${ay}" stroke="var(--line-strong)" stroke-width="1" stroke-dasharray="2 2"/>
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${x(last).toFixed(1)}" cy="${y(lastV).toFixed(1)}" r="3" fill="${col}"/></svg>`;
+}
+function badges(r){
+  if(!r.eligible) return `<div class="badges"><span class="badge ok" title="Below the minimum DRR floor — too small to flag for daily swings.">Low volume</span></div>`;
+  const b=[];
+  if(r.overdue) b.push(`<span class="badge overdue" title="On today's pull this seller is at zero and it's already past the time they've started on 80% of recent days — call them now.">📞 Overdue · call</span>`);
+  if(r.silent) b.push(`<span class="badge silent" title="Zero shipments today despite being active recently.">Went silent</span>`);
+  if(r.drop)   b.push(`<span class="badge drop" title="Today is more than 15% below the seller's baseline DRR — your macro's CALL rule.">CALL · drop ${fmtPct(r.deltaPct)}</span>`);
+  if(r.surge)  b.push(`<span class="badge surge" title="Today is more than 15% above the seller's baseline DRR.">CALL · surge ${fmtPct(r.deltaPct)}</span>`);
+  if(r.decline)b.push(`<span class="badge decline" title="Shipments fell on three consecutive days — a sustained slide, not a one-day blip.">3-day slide</span>`);
+  if(r.behindPace) b.push(`<span class="badge pace" title="Cycle-to-date run rate is under 90% of the target DRR — behind the monthly pace.">Behind pace</span>`);
+  if(r.pickupFlag) b.push(`<span class="badge pickup" title="${r.op.pp} shipments manifested but still awaiting pickup (status: pickup pending / not picked / out for pickup).">Pickup pending ${r.op.pp}</span>`);
+  if(r.rtoFlag)    b.push(`<span class="badge rto" title="${(r.op.rrate*100).toFixed(0)}% of this seller's shipments went RTO${r.op.trr?` · top reason: ${r.op.trr}`:""}.">RTO ${(r.op.rrate*100).toFixed(0)}%</span>`);
+  if(r.ndrFlag)    b.push(`<span class="badge ndr" title="${r.op.ndr} live NDRs with no seller action yet${r.op.tnr?` · top reason: ${r.op.tnr}`:""}.">NDR open ${r.op.ndr}</span>`);
+  if(!b.length) b.push(`<span class="badge ok" title="No action flags — within normal range.">Observe</span>`);
+  return `<div class="badges">${b.join("")}</div>`;
+}
+
+/* ====== render ====== */
+function renderKPIs(a){
+  const rows=a.rows, single=a.from===a.to, winDays=a.winDays||1;
+  const volToday=rows.reduce((s,r)=>s+r.today,0);
+  const volPeriod=rows.reduce((s,r)=>s+(r.periodVol||0),0);
+  const base=rows.reduce((s,r)=>s+r.baseline,0);
+  const dPct=base?(volToday-base)/base*100:0;
+  const total = single? volToday : volPeriod;
+  const calls=rows.filter(r=>r.drop).length;
+  const silent=rows.filter(r=>r.silent).length;
+  const decline=rows.filter(r=>r.decline).length;
+  const behind=rows.filter(r=>r.behindPace).length;
+  const overdue=rows.filter(r=>r.overdue).length;
+  const pickup=rows.filter(r=>r.pickupFlag).length;
+  const rto=rows.filter(r=>r.rtoFlag).length;
+  const ndrop=rows.filter(r=>r.ndrFlag).length;
+  const cards=[
+    {flag:"all",   label: single?"Manifested · day":"Manifested · period",val:fmt(total),
+      sub: single?`<span class="${dPct>=0?'up':'down'}">${fmtPct(dPct)}</span> vs baseline`:`${winDays} days · ${fmt(total/winDays)}/day avg`,cls:"",
+      tip:"Total shipments over the selected window. Click to clear filters."},
+    {flag:"overdue",label:"Overdue · call now",val:overdue,sub:"past usual time, 0 today",cls:overdue?"crit":"",tip:"Accounts at zero on today's pull where it's already past the time they start on 80% of days. Click to list them."},
+    {flag:"drop",  label:"CALL · drops",val:calls,sub:"down >15% vs baseline",cls:calls?"crit":"",tip:"Accounts more than 15% below their baseline DRR today — your macro's CALL rule. Click to list them."},
+    {flag:"silent",label:"Went silent",val:silent,sub:"zero today, active recently",cls:silent?"crit":"",tip:"Accounts with zero shipments today that were active recently. Click to list them."},
+    {flag:"decline",label:"3-day slide",val:decline,sub:"declining 3 days running",cls:decline?"warn":"",tip:"Accounts whose shipments fell three days in a row. Click to list them."},
+    {flag:"behind",label:"Behind target pace",val:behind,sub:"under 90% of target DRR",cls:behind?"warn":"",tip:"Accounts running under 90% of their target daily rate for the cycle so far. Click to list them."},
+    {flag:"pickup",label:"Pickup pending",val:pickup,sub:"≥5 awaiting pickup",cls:pickup?"warn":"",tip:"Accounts with 5+ shipments manifested but not yet picked up (a stuck backlog). Click to list them."},
+    {flag:"rto",label:"High RTO",val:rto,sub:"≥20% returns",cls:rto?"warn":"",tip:"Accounts where 20%+ of shipments went return-to-origin (min 10 shipments). Click to list them."},
+  ];
+  if(OPS.ndrEnabled) cards.push({flag:"ndr",label:"Open NDRs",val:ndrop,sub:"≥5 flagged",cls:ndrop?"warn":"",tip:"Accounts with 5+ NDR-tagged shipments. Click to list them."});
+  document.getElementById("kpis").innerHTML=cards.map(c=>{
+    const sel = state.flag===c.flag && c.flag!=="all";
+    return `<div class="kpi ${c.cls} ${sel?'sel':''}" data-flag="${c.flag}" role="button" tabindex="0" aria-pressed="${sel}" title="${c.tip}">
+      <div class="accentbar"></div><div class="k-label">${c.label}</div><div class="k-val">${c.val}</div><div class="k-sub">${c.sub}</div></div>`;
+  }).join("");
+  document.querySelectorAll("#kpis .kpi").forEach(el=>{
+    const go=()=>{ const f=el.dataset.flag; state.flag = (f==="all"||state.flag===f) ? "all" : f; render(); scrollToTable(); };
+    el.addEventListener("click",go);
+    el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}});
+  });
+}
+function renderKAMs(rows){
+  const wrap=document.getElementById("kamWrap"), grid=document.getElementById("kamGrid");
+  const byK={};
+  rows.forEach(r=>{ if(r.kam) (byK[r.kam] ||= []).push(r); });
+  const kams=Object.keys(byK);
+  if(!kams.length){ wrap.style.display="none"; return; }
+  wrap.style.display="";
+  kams.sort((a,b)=>byK[b].reduce((s,r)=>s+r.today,0)-byK[a].reduce((s,r)=>s+r.today,0));
+  grid.innerHTML=kams.map(k=>{
+    const rs=byK[k];
+    const single=state.from===state.to;
+    const today=rs.reduce((s,r)=>s+(single?r.today:r.periodVol),0), base=rs.reduce((s,r)=>s+r.baseline,0);
+    const dToday=rs.reduce((s,r)=>s+r.today,0);
+    const dPct=base?(dToday-base)/base*100:0;
+    const ams=new Set(rs.map(r=>r.ae)).size;
+    const flagged=rs.filter(r=>r.drop||r.silent).length, behind=rs.filter(r=>r.behindPace).length;
+    const ontrack=Math.max(0,rs.length-flagged-behind);
+    const avgD=rs.reduce((s,r)=>s+(r.avgDRR||0),0)/rs.length, tgtD=rs.reduce((s,r)=>s+(r.tDRR||0),0)/rs.length;
+    return `<div class="am-card ${state.kam===k?'active':''}" data-kam="${k}" role="button" tabindex="0">
+      <div class="am-name">${k}</div>
+      <div class="am-meta">${ams} managers · ${rs.length} sellers</div>
+      <div><span class="am-vol">${fmt(today)}</span><span class="am-delta ${dPct>=0?'up':'down'}">${fmtPct(dPct)}</span></div>
+      <div class="am-drr"><span title="Average shipments per day for a typical account in this KAM's book, over the selected period">Avg DRR/acct <b>${fmt1(avgD)}</b></span><span title="Average target daily run rate per account in this KAM's book">Target/acct <b>${fmt1(tgtD)}</b></span></div>
+      <div class="am-stats">${flagged?`<span class="tag crit" title="Accounts with a CALL drop or went-silent flag">${flagged} flagged</span>`:``}${behind?`<span class="tag warn" title="Accounts under 90% of their target pace">${behind} behind</span>`:``}<span class="tag good" title="Accounts with no action flag — within normal range and on pace">${ontrack} on track</span></div>
+    </div>`;
+  }).join("");
+  grid.querySelectorAll(".am-card").forEach(el=>{
+    const t=()=>{state.kam=state.kam===el.dataset.kam?"__all__":el.dataset.kam;state.am="__all__";render();scrollToTable();};
+    el.addEventListener("click",t);
+    el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();t();}});
+  });
+}
+function renderAMs(rows){
+  const grid=document.getElementById("amGrid"), byAm={};
+  const pool = state.kam==="__all__" ? rows : rows.filter(r=>r.kam===state.kam);
+  pool.forEach(r=>{(byAm[r.ae||""] ||= []).push(r);});
+  const ams=Object.keys(byAm).sort((a,b)=> byAm[b].reduce((s,r)=>s+r.today,0)-byAm[a].reduce((s,r)=>s+r.today,0));
+  grid.innerHTML=ams.map(ae=>{
+    const rs=byAm[ae];
+    const single=state.from===state.to;
+    const today=rs.reduce((s,r)=>s+(single?r.today:r.periodVol),0), base=rs.reduce((s,r)=>s+r.baseline,0);
+    const dToday=rs.reduce((s,r)=>s+r.today,0);
+    const dPct=base?(dToday-base)/base*100:0;
+    const flagged=rs.filter(r=>r.drop||r.silent).length, behind=rs.filter(r=>r.behindPace).length;
+    const ontrack=Math.max(0,rs.length-flagged-behind);
+    const kam=rs[0]&&rs[0].kam?rs[0].kam:"";
+    const avgD=rs.reduce((s,r)=>s+(r.avgDRR||0),0)/rs.length, tgtD=rs.reduce((s,r)=>s+(r.tDRR||0),0)/rs.length;
+    return `<div class="am-card ${state.am===ae?'active':''}" data-am="${ae}" role="button" tabindex="0">
+      <div class="am-name">${amName(ae)}</div>
+      <div class="am-meta">${kam?kam+" · ":""}${rs.length} sellers</div>
+      <div><span class="am-vol">${fmt(today)}</span><span class="am-delta ${dPct>=0?'up':'down'}">${fmtPct(dPct)}</span></div>
+      <div class="am-drr"><span title="Average shipments per day for a typical account in this manager's book, over the selected period">Avg DRR/acct <b>${fmt1(avgD)}</b></span><span title="Average target daily run rate per account in this manager's book">Target/acct <b>${fmt1(tgtD)}</b></span></div>
+      <div class="am-stats">${flagged?`<span class="tag crit" title="Accounts with a CALL drop or went-silent flag">${flagged} flagged</span>`:``}${behind?`<span class="tag warn" title="Accounts under 90% of their target pace">${behind} behind</span>`:``}<span class="tag good" title="Accounts with no action flag — within normal range and on pace">${ontrack} on track</span></div>
+    </div>`;
+  }).join("");
+  grid.querySelectorAll(".am-card").forEach(el=>{
+    const t=()=>{state.am=state.am===el.dataset.am?"__all__":el.dataset.am;document.getElementById("amSel").value=state.am;render();scrollToTable();};
+    el.addEventListener("click",t);
+    el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();t();}});
+  });
+}
+function detailRow(r){
+  const cell=(l,v,sub)=>`<div class="dm"><span class="dl">${l}</span><span class="dv">${v}${sub?` <small>${sub}</small>`:""}</span></div>`;
+  return `<div class="detail-inner">
+    ${cell("Seller email",`<span class="mono" style="font-size:12px">${r.e}</span>`)}
+    ${cell("Key AM", r.kam||"—")}
+    ${cell("Avg DRR (period)",fmt1(r.avgDRR),"selected window")}
+    ${cell("Overall DRR",fmt1(r.overallDRR),"all days")}
+    ${cell("DRR MTD (cycle)",fmt1(r.drrMTD),"to date")}
+    ${cell("Target DRR", r.tDRR!=null?fmt1(r.tDRR):"—","/day")}
+    ${cell("Gap to target", r.gap!=null?fmt1(r.gap):"—","DRR")}
+    ${cell("Volume MTD",fmt(r.volMTD),"this cycle")}
+    ${cell("Target volume", r.tVol!=null?fmt(r.tVol):"—","DRR×cycle")}
+    ${cell("Volume left", r.volLeft!=null?fmt(r.volLeft):"—")}
+    ${cell("DRR to hit target", r.drrNeeded!=null?fmt1(r.drrNeeded):"—","/day left")}
+    ${cell("Today vs baseline",fmtPct(r.deltaPct), `${fmt(r.today)} vs ${fmt1(r.baseline)}`)}
+    ${cell("WoW DRR growth", r.wow!=null?fmtPct(r.wow):"—","this wk vs last")}
+    ${cell("Usual manifest time", r.etime!=null?hhmm(r.etime):"—", r.nd?`${r.nd} days`:"")}
+    ${cell("Expected by", r.dtime!=null?hhmm(r.dtime):"—","80% of days")}
+    ${cell("Today's first manifest", r.ftoday!=null?hhmm(r.ftoday):(r.manifestedToday?"—":"none yet"))}
+    ${cell("Pickup pending", (r.op&&r.op.pp)||0, "awaiting pickup")}
+    ${cell("RTO rate", r.op?((r.op.rrate*100).toFixed(0)+"%"):"—", r.op&&r.op.trr?r.op.trr:"")}
+    ${cell("NDR-tagged", r.op?((r.op.nrate*100).toFixed(0)+"%"):"—", r.op&&r.op.tnr?r.op.tnr:"informational")}
+    ${cell("Total shipments (file)", (r.op&&r.op.tot)||0)}
+  </div>`;
+}
+function renderTable(rows){
+  let r=rows.slice();
+  if(state.kam!=="__all__") r=r.filter(x=>(x.kam||"")===state.kam);
+  if(state.am!=="__all__") r=r.filter(x=>(x.ae||"")===state.am);
+  if(state.flag==="drop") r=r.filter(x=>x.drop);
+  else if(state.flag==="silent") r=r.filter(x=>x.silent);
+  else if(state.flag==="decline") r=r.filter(x=>x.decline);
+  else if(state.flag==="behind") r=r.filter(x=>x.behindPace);
+  else if(state.flag==="overdue") r=r.filter(x=>x.overdue);
+  else if(state.flag==="pickup") r=r.filter(x=>x.pickupFlag);
+  else if(state.flag==="rto") r=r.filter(x=>x.rtoFlag);
+  else if(state.flag==="ndr") r=r.filter(x=>x.ndrFlag);
+  if(state.q){const q=state.q.toLowerCase();r=r.filter(x=>x.n.toLowerCase().includes(q)||x.e.toLowerCase().includes(q));}
+  const rank=x=>(x.overdue?8:0)+(x.silent?3:0)+(x.drop?2:0)+(x.decline?1:0)+(x.pickupFlag?2:0)+(x.rtoFlag?1:0)+(x.ndrFlag?1:0);
+  const S={
+    impact:(a,b)=>(rank(b)-rank(a))||(b.impact-a.impact),
+    drop:(a,b)=>(a.eligible?a.deltaPct??999:999)-(b.eligible?b.deltaPct??999:999),
+    surge:(a,b)=>((b.deltaPct===Infinity?1e9:b.deltaPct??-999))-((a.deltaPct===Infinity?1e9:a.deltaPct??-999)),
+    pace:(a,b)=>(a.pacePct??1e9)-(b.pacePct??1e9),
+    vol:(a,b)=>b.today-a.today,
+    name:(a,b)=>a.n.localeCompare(b.n),
+  };
+  r.sort(S[state.sort]||S.impact);
+
+  const tb=document.getElementById("tbody");
+  if(!r.length){tb.innerHTML=`<tr><td colspan="13"><div class="empty"><b>No sellers match</b>Clear the search or pick another manager.</div></td></tr>`;return;}
+  tb.innerHTML=r.map(x=>{
+    const dCls=x.deltaPct==null?"flat":x.deltaPct===Infinity?"pos":x.deltaPct>0?"pos":x.deltaPct<0?"neg":"flat";
+    const wCls=x.wow==null?"flat":x.wow>=15?"pos":x.wow<=-15?"neg":"flat";
+    let mtd="—";
+    if(x.pacePct!=null){const p=Math.max(0,Math.min(120,x.pacePct));const col=x.pacePct>=100?"var(--good)":x.pacePct>=90?"var(--warn-raw)":"var(--crit)";
+      mtd=`<div class="mtd-wrap"><div class="mtd-bar"><i style="width:${p/120*100}%;background:${col}"></i></div><span class="mono" style="color:${col};font-weight:600">${x.pacePct.toFixed(0)}%</span></div>`;}
+    const tgt = x.tDRR!=null ? `${fmt1(x.tDRR)} <span style="color:var(--faint)">· ${fmt(x.tVol)}</span>` : "—";
+    let mstat;
+    if(x.manifestedToday) mstat=`<span class="mt-stat mt-ok">✓ ${hhmm(x.ftoday)}</span>`;
+    else if(x.overdue)    mstat=`<span class="mt-stat mt-late">overdue · call</span>`;
+    else if(x.etime!=null)mstat=`<span class="mt-stat mt-wait">awaiting</span>`;
+    else                  mstat=`<span class="mt-stat mt-wait">—</span>`;
+    const mtime=`<div class="mtime"><span class="mt-usual">${x.etime!=null?"~"+hhmm(x.etime):"—"}</span>${mstat}</div>`;
+    const o=x.op||{pp:0,rrate:0,ndr:0};
+    const opChips=[
+      o.pp>0?`<span class="opchip ${x.pickupFlag?'hot':''}" title="${o.pp} awaiting pickup">🚚 ${o.pp}</span>`:"",
+      o.rrate>0?`<span class="opchip ${x.rtoFlag?'hot':''}" title="RTO rate${o.trr?' · '+o.trr:''}">↩ ${(o.rrate*100).toFixed(0)}%</span>`:"",
+      (OPS.ndrEnabled&&o.ndr>0)?`<span class="opchip ${x.ndrFlag?'hot':''}" title="${o.ndr} NDR-tagged${o.tnr?' · '+o.tnr:''}">✉ ${o.ndr}</span>`:"",
+    ].filter(Boolean).join(" ")||`<span style="color:var(--faint)">—</span>`;
+    const open=state.open.has(x.e);
+    return `<tr class="main ${open?'open':''}" data-e="${x.e}">
+      <td><span class="caret">▶</span> <span class="s-name">${x.n}</span>${x.c?`<span class="s-cohort">${x.c}</span>`:""}<br><span class="s-email">${x.e}</span></td>
+      <td class="s-am">${x.kam||"—"}</td>
+      <td class="s-am">${amName(x.ae)}</td>
+      <td class="num">${fmt(state.from===state.to? x.today : x.periodVol)}</td>
+      <td>${mtime}</td>
+      <td class="num">${fmt1(x.avgDRR)}</td>
+      <td class="num">${tgt}</td>
+      <td class="num"><span class="delta ${dCls}">${fmtPct(x.deltaPct)}</span></td>
+      <td class="num"><span class="delta ${wCls}">${fmtPct(x.wow)}</span></td>
+      <td>${sparkline(x.spark,x.baseline)}</td>
+      <td class="num">${mtd}</td>
+      <td><div class="opcell">${opChips}</div></td>
+      <td>${badges(x)}</td>
+    </tr>${open?`<tr class="detail"><td colspan="13">${detailRow(x)}</td></tr>`:""}`;
+  }).join("");
+  tb.querySelectorAll("tr.main").forEach(tr=>tr.addEventListener("click",()=>{
+    const e=tr.dataset.e; state.open.has(e)?state.open.delete(e):state.open.add(e); renderTable(analyse().rows);
+  }));
+}
+function buildSelects(rows){
+  const opts=DATA.dates.slice().reverse().map(d=>{
+    const partial = d===DATA.meta.pullDate && d!==DATA.meta.lastCompleteDate;
+    return `<option value="${d}">${niceDate(d)}${partial?" · partial":""}</option>`;}).join("");
+  const fs=document.getElementById("fromSel"), ts=document.getElementById("toSel");
+  fs.innerHTML=opts; ts.innerHTML=opts; fs.value=state.from; ts.value=state.to;
+
+  const kams=[...new Set(rows.map(r=>r.kam).filter(Boolean))].sort();
+  const ks=document.getElementById("kamSel");
+  ks.innerHTML=`<option value="__all__">All KAMs</option>`+kams.map(k=>`<option value="${k}">${k}</option>`).join("");
+  ks.value=state.kam;
+  ks.disabled = kams.length===0;
+
+  const pool = state.kam==="__all__" ? rows : rows.filter(r=>r.kam===state.kam);
+  const am=document.getElementById("amSel");
+  const ams=[...new Set(pool.map(r=>r.ae||""))].sort((a,b)=>amName(a).localeCompare(amName(b)));
+  am.innerHTML=`<option value="__all__">All managers</option>`+ams.map(a=>`<option value="${a}">${amName(a)}</option>`).join("");
+  am.value = ams.includes(state.am)?state.am:"__all__";
+}
+function emptyState(){
+  document.getElementById("asofLine").textContent="Drop your Target file, then the daily report CSV, to build the board.";
+  document.getElementById("kpis").innerHTML="";
+  document.getElementById("kamWrap").style.display="none";
+  document.getElementById("amGrid").innerHTML="";
+  document.getElementById("activeFilters").style.display="none";
+  document.getElementById("fromSel").innerHTML="";
+  document.getElementById("toSel").innerHTML="";
+  document.getElementById("amSel").innerHTML=`<option value="__all__">All managers</option>`;
+  document.getElementById("kamSel").innerHTML=`<option value="__all__">All KAMs</option>`;
+  document.getElementById("tbody").innerHTML=`<tr><td colspan="13"><div class="empty"><b>No data loaded yet</b>Use the tiles above the table: drop your Target file first, then the daily report CSV. Your files are read in your browser and never uploaded anywhere.</div></td></tr>`;
+}
+function render(){
+  if(!DATA.dates.length){ emptyState(); return; }
+  const a=analyse();
+  const partial = a.asOf===DATA.meta.pullDate && a.asOf!==DATA.meta.lastCompleteDate;
+  const single = a.from===a.to;
+  document.getElementById("asofLine").innerHTML =
+    (single
+      ? `Single day · <b>${niceDate(a.to)}</b>`
+      : `Period <b>${niceDate(a.from)} – ${niceDate(a.to)}</b> <span style="color:var(--faint)">(${a.winDays} days)</span>`)+
+    ` · baseline <b>${state.baseline==="mtd"?"cycle-to-date":"rolling 7-day"}</b> · cycle <b>${niceDate(a.cycleStart)} – ${niceDate(a.cycleEnd)}</b>`+
+    (a.pullTime!=null?` · today's pull ~<b>${hhmm(a.pullTime)}</b>`:``)+
+    (partial?` <span style="color:var(--crit);font-weight:600">· ${niceDate(a.to)} is partial</span>`:``);
+  document.getElementById("thVolText").textContent = single ? "Today" : `Vol (${a.winDays}d)`;
+  buildSelects(a.rows); renderKPIs(a); renderKAMs(a.rows); renderAMs(a.rows); renderFilters(); renderTable(a.rows);
+}
+
+const FLAG_LABEL={overdue:"Overdue · call now",drop:"CALL · drops",silent:"Went silent",decline:"3-day slide",behind:"Behind target pace",pickup:"Pickup pending",rto:"High RTO",ndr:"Open NDRs"};
+function scrollToTable(){
+  const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  document.querySelector(".tablecard").scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"});
+}
+function renderFilters(){
+  const bar=document.getElementById("activeFilters");
+  const chips=[];
+  if(state.flag!=="all") chips.push({k:"flag",t:FLAG_LABEL[state.flag]||state.flag});
+  if(state.kam!=="__all__") chips.push({k:"kam",t:"KAM: "+state.kam});
+  if(state.am!=="__all__") chips.push({k:"am",t:"AM: "+amName(state.am)});
+  if(state.q) chips.push({k:"q",t:'"'+state.q+'"'});
+  if(!chips.length){ bar.style.display="none"; bar.innerHTML=""; return; }
+  bar.style.display="flex";
+  bar.innerHTML=`<span class="fb-label">Showing</span>`+
+    chips.map(c=>`<span class="chip" data-k="${c.k}">${c.t}<span class="x" aria-label="clear">×</span></span>`).join("")+
+    `<button class="chip clear" data-k="all">Clear all</button>`;
+  bar.querySelectorAll(".chip").forEach(el=>el.addEventListener("click",()=>{
+    const k=el.dataset.k;
+    if(k==="all"){state.flag="all";state.kam="__all__";state.am="__all__";state.q="";document.getElementById("searchInput").value="";}
+    else if(k==="flag")state.flag="all";
+    else if(k==="kam"){state.kam="__all__";state.am="__all__";}
+    else if(k==="am")state.am="__all__";
+    else if(k==="q"){state.q="";document.getElementById("searchInput").value="";}
+    render();
+  }));
+}
+
+/* ====== copy summary ====== */
+function amBlock(rs, indent){
+  const today=rs.reduce((s,r)=>s+r.today,0), base=rs.reduce((s,r)=>s+r.baseline,0);
+  const dPct=base?((today-base)/base*100):0;
+  let out=`${indent}■ ${amName(rs[0].ae)} — ${fmt(today)} today (${fmtPct(dPct)} vs base)\n`;
+  const acts=rs.filter(r=>r.overdue||r.silent||r.drop||r.decline||r.behindPace||r.pickupFlag||r.rtoFlag||r.ndrFlag).sort((a,b)=>b.impact-a.impact);
+  if(!acts.length){ out+=`${indent}   all observe / on track\n`; }
+  acts.forEach(r=>{
+    const f=[]; if(r.overdue)f.push(`OVERDUE — call (usual ${hhmm(r.etime)})`); if(r.silent)f.push("SILENT"); if(r.drop)f.push(`CALL drop ${fmtPct(r.deltaPct)}`);
+    if(r.decline)f.push("3-day slide"); if(r.behindPace)f.push(`pace ${r.pacePct.toFixed(0)}%`);
+    if(r.pickupFlag)f.push(`pickup pending ${r.op.pp}`); if(r.rtoFlag)f.push(`RTO ${(r.op.rrate*100).toFixed(0)}%`); if(r.ndrFlag)f.push(`NDR open ${r.op.ndr}`);
+    out+=`${indent}   - ${r.n}: ${f.join(", ")} (today ${fmt(r.today)} vs base ${fmt1(r.baseline)})\n`;
+  });
+  return out;
+}
+function buildSummary(){
+  const {rows,asOf}=analyse();
+  if(!rows.length) return "No data loaded yet — upload your Target file and daily CSV first.";
+  let out=`MANIFEST WATCH — ${niceDate(asOf)}\nBaseline: ${state.baseline==="mtd"?"cycle-to-date":"rolling 7-day"} DRR. Flags only for sellers ≥${state.floor}/day.\n\n`;
+  const hasKam=rows.some(r=>r.kam);
+  const groupAM=list=>{const m={};list.forEach(r=>{(m[r.ae||""] ||= []).push(r);});return Object.values(m).sort((a,b)=>amName(a[0].ae).localeCompare(amName(b[0].ae)));};
+  if(hasKam){
+    const byK={}; rows.forEach(r=>{(byK[r.kam||"(no KAM)"] ||= []).push(r);});
+    Object.keys(byK).sort().forEach(k=>{
+      const today=byK[k].reduce((s,r)=>s+r.today,0);
+      out+=`◆ ${k} — ${fmt(today)} today\n`;
+      groupAM(byK[k]).forEach(rs=>out+=amBlock(rs,"  "));
+      out+=`\n`;
+    });
+  } else {
+    groupAM(rows).forEach(rs=>{ out+=amBlock(rs,""); out+=`\n`; });
+  }
+  return out;
+}
+
+/* ====== uploads ====== */
+function parseTargetRows(rowsArr){
+  if(!rowsArr.length) return 0;
+  const headers=Object.keys(rowsArr[0]);
+  const idCol=headers.find(h=>/row label|seller|email/i.test(h))||headers[0];
+  const tCol=headers.find(h=>/target/i.test(h))||headers[1];
+  const kCol=headers.find(h=>/\bkam\b|key\s*account|key\s*am/i.test(h));
+  const amCol=headers.find(h=>/^\s*am\s*$|^\s*account manager\s*$/i.test(String(h)));
+  savedTargets={}; savedKAM={}; savedAM={};
+  rowsArr.forEach(r=>{
+    const k=String(r[idCol]).trim().toLowerCase();
+    const v=Number(String(r[tCol]).replace(/[^0-9.\-]/g,""));
+    if(k&&!isNaN(v))savedTargets[k]=v;
+    if(k&&kCol){const km=String(r[kCol]).trim(); if(km&&km.toLowerCase()!=="nan") savedKAM[k]=km;}
+    if(k&&amCol){const a=String(r[amCol]).trim(); if(a&&a.toLowerCase()!=="nan") savedAM[k]=a;}
+  });
+  return Object.keys(savedTargets).length;
+}
+function handleTargets(file,el){
+  const done=rowsArr=>{
+    const nT=parseTargetRows(rowsArr); if(!nT) return;
+    el.classList.add("ok");
+    const nK=Object.keys(savedKAM).length;
+    el.querySelector(".sub").textContent=`${nT} targets${nK?` · ${nK} KAM`:""}`;
+    buildData();
+  };
+  const ext=file.name.split(".").pop().toLowerCase();
+  if(ext==="csv"){Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>done(r.data)});}
+  else{const fr=new FileReader();fr.onload=e=>{const wb=XLSX.read(e.target.result,{type:"array"});done(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""}));};fr.readAsArrayBuffer(file);}
+}
+
+// accounts directory ("Template_Update_Sellers"): seller -> AM / KAM(SAM) / cohort / zone
+function parseAccountRows(rowsArr){
+  if(!rowsArr.length) return 0;
+  const H=Object.keys(rowsArr[0]);
+  const find=re=>H.find(h=>re.test(String(h)));
+  const idC=find(/seller\s*email|^email$|sellerEmail/i)||H[0];
+  const amNC=find(/am\s*name|amName/i), amEC=find(/am\s*email|amEmail/i);
+  const kmNC=find(/kam\s*name|kamName|sam\s*name|samName/i), kmEC=find(/kam\s*email|kamEmail|sam\s*email|samEmail/i);
+  const cohC=find(/cohort/i), zC=find(/zone/i);
+  DIR={}; const amTally={}, kmTally={};
+  const clean=v=>{const s=String(v==null?"":v).trim(); return (s&&s.toLowerCase()!=="nan")?s:"";};
+  rowsArr.forEach(r=>{
+    const e=clean(r[idC]).toLowerCase(); if(!e) return;
+    const ae=amEC?clean(r[amEC]).toLowerCase():""; const an=amNC?clean(r[amNC]):"";
+    const ke=kmEC?clean(r[kmEC]).toLowerCase():""; const kn=kmNC?clean(r[kmNC]):"";
+    DIR[e]={ae, an, ke, kn, c:cohC?clean(r[cohC]):"", z:zC?clean(r[zC]):""};
+    if(ae&&an){ (amTally[ae] ||= {})[an]=(amTally[ae][an]||0)+1; }
+    if(ke&&kn){ (kmTally[ke] ||= {})[kn]=(kmTally[ke][kn]||0)+1; }
+  });
+  const mode=t=>{let k="",mx=0;for(const x in t){if(t[x]>mx){mx=t[x];k=x;}}return k;};
+  DIR_AM={}; Object.entries(amTally).forEach(([em,t])=>DIR_AM[em]=mode(t));   // canonical AM name per email
+  DIR_KAM={}; Object.entries(kmTally).forEach(([em,t])=>DIR_KAM[em]=mode(t)); // canonical KAM name per email
+  // store the canonical KAM name on each directory entry
+  Object.values(DIR).forEach(d=>{ if(d.ke&&DIR_KAM[d.ke]) d.kn=DIR_KAM[d.ke]; if(d.ae&&DIR_AM[d.ae]) d.an=DIR_AM[d.ae]; });
+  return Object.keys(DIR).length;
+}
+function handleAccounts(file,el){
+  const done=rowsArr=>{
+    const n=parseAccountRows(rowsArr); if(!n) return;
+    el.classList.add("ok");
+    const nK=Object.values(DIR).filter(d=>d.kn).length;
+    el.querySelector(".sub").textContent=`${n.toLocaleString()} accounts${nK?` · ${nK} KAM`:""}`;
+    buildData();
+  };
+  const ext=file.name.split(".").pop().toLowerCase();
+  if(ext==="csv"){Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>done(r.data)});}
+  else{const fr=new FileReader();fr.onload=e=>{const wb=XLSX.read(e.target.result,{type:"array"});done(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""}));};fr.readAsArrayBuffer(file);}
+}
+
+// assemble DATA from the cached daily aggregation + current targets + directory; any-order uploads
+function buildData(){
+  if(!RAW){ render(); return; }
+  const {counts, meta, amName, firstTime, ops, n} = RAW;
+  let dates=[...new Set(Object.values(counts).flatMap(o=>Object.keys(o)))].sort();
+  const cb=cycleBounds(dates[dates.length-1]);
+  dates=dates.filter(d=> d>=cb.start && d<=cb.end);
+  const di=d=>dates.indexOf(d);
+  const resolveAmEmail=(name)=>{ if(!name) return "";
+    for(const [em,full] of Object.entries(amName)) if(full===name) return em;
+    for(const [em,full] of Object.entries(amName)) if(full&&full.toLowerCase().startsWith(name.toLowerCase())) return em;
+    return ""; };
+  const haveDir=Object.keys(DIR).length>0;
+  const active=new Set(Object.keys(counts));
+  let uni;
+  if(haveDir){
+    uni=new Set(Object.keys(DIR).filter(e=> active.has(e) || savedTargets[e]!=null));
+    Object.keys(savedTargets).forEach(e=>uni.add(e));   // always include targeted accounts
+  } else {
+    uni=new Set(Object.keys(savedTargets).length ? Object.keys(savedTargets) : Object.keys(counts));
+  }
+  const universe=[...uni];
+  const pull=dates[dates.length-1], lastComplete=dates.length>1?dates[dates.length-2]:pull;
+  const quantile=(arr,p)=>{ if(!arr.length) return null; const a=arr.slice().sort((x,y)=>x-y); const i=(a.length-1)*p; const lo=Math.floor(i),hi=Math.ceil(i); return Math.round(a[lo]+(a[hi]-a[lo])*(i-lo)); };
+  let pullTime=null;
+  Object.values(firstTime).forEach(ft=>{ if(ft[pull]!=null) pullTime=(pullTime==null)?ft[pull]:Math.max(pullTime,ft[pull]); });
+  const topKey=obj=>{let k="",mx=0;for(const x in obj){if(obj[x]>mx){mx=obj[x];k=x;}}return k;};
+
+  const sellers=universe.map(se=>{
+    const v=new Array(dates.length).fill(0);
+    const c=counts[se]; if(c) for(const [d,q] of Object.entries(c)) if(di(d)>=0) v[di(d)]=q;
+    const m=meta[se], dir=DIR[se];
+    const ae=(dir&&dir.ae)||(m&&m.ae)||resolveAmEmail(savedAM[se]||"")||"";
+    const kam=(dir&&dir.kn)||(m&&m.kam)||savedKAM[se]||"";
+    const coh=(m&&m.c)||(dir&&dir.c)||"";
+    const ft=firstTime[se]||{};
+    const histTimes=dates.filter(d=>d<pull && ft[d]!=null).map(d=>ft[d]);
+    const etime = histTimes.length>=7 ? quantile(histTimes,0.5) : null;
+    const dtime = histTimes.length>=7 ? quantile(histTimes,0.8) : null;
+    const ftoday = ft[pull]!=null ? ft[pull] : null;
+    const o=ops[se]||{pp:0,rto:0,ndr:0,tot:0,rr:{},nr:{}};
+    const opsSummary={pp:o.pp, rto:o.rto, ndr:o.ndr, tot:o.tot,
+      rrate:o.tot?o.rto/o.tot:0, nrate:o.tot?o.ndr/o.tot:0, trr:topKey(o.rr), tnr:topKey(o.nr)};
+    const t = savedTargets[se]!=null ? savedTargets[se] : (haveDir ? 0 : null);
+    return {e:se, n:(m&&m.n)||se, ae, c:coh, kam,
+            t, v, etime, dtime, nd:histTimes.length, ftoday, ops:opsSummary};
+  });
+  DATA={dates, amByEmail:{...amName, ...DIR_AM}, sellers,
+        meta:{pullDate:pull,lastCompleteDate:lastComplete,cycleStart:dates[0],pullTime}};
+  state.from=null; state.to=null; state.kam="__all__"; state.am="__all__"; state.flag="all"; state.open=new Set();
+  const hc=document.getElementById("helpCard"); if(hc) hc.open=false;
+  document.getElementById("sourcePill").textContent=`Your data · ${niceDate(pull)} pull`;
+  const tHave=Object.keys(savedTargets).length, withT=sellers.filter(s=>s.t!=null&&s.t>0).length;
+  document.getElementById("sourceNote").innerHTML=`Loaded ${n.toLocaleString()} shipments · ${sellers.length} accounts shown${haveDir?" (from the directory)":""} · ${withT} with a target${haveDir?`, ${sellers.length-withT} at target 0`:""} · cycle ${niceDate(cb.start)} – ${niceDate(cb.end)}.`;
+  render();
+}
+
+function handleManifest(file,el){
+  el.classList.add("busy"); el.classList.remove("ok");
+  const counts={}, meta={}, amName={};
+  let n=0;
+  const pick=(row,keys)=>{for(const k of keys){if(row[k]!=null&&row[k]!=="")return row[k];}return "";};
+  const firstTime={};   // seller -> {date: earliest minute-of-day}
+  const ops={};         // seller -> {pp,rto,ndr,tot, rr:{reason:count}, nr:{reason:count}}
+  const has=v=>{ const s=String(v).trim(); return s && s.toLowerCase()!=="nan"; };
+  const PICKUP_PENDING=new Set(["Order Placed","Pickup Pending","Pickup Scheduled","Out for Pickup","Not Picked","Pickup Cancelled"]);
+  const NDR_TERMINAL=new Set(["Delivered","Cancelled","Seller Cancelled","Lost In Audit","Damaged"]);
+  const toMin=t=>{ t=String(t).trim().toUpperCase(); const m=t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/); if(!m) return null;
+    let h=+m[1], mi=+m[2]; if(m[3]==="PM"&&h<12)h+=12; if(m[3]==="AM"&&h===12)h=0; return h*60+mi; };
+  Papa.parse(file,{
+    header:true, skipEmptyLines:true, chunkSize:1024*1024*8,
+    chunk:(res)=>{
+      for(const row of res.data){
+        const se=String(pick(row,["seller_email","Seller Email","sellerEmail"])).trim().toLowerCase();
+        let md=String(pick(row,["manifested_date","manifest_date","date"])).slice(0,10);
+        if(!se||!md) continue;
+        (counts[se] ||= {})[md]=(counts[se][md]||0)+1; n++;
+        const mn=toMin(pick(row,["manifested_time","manifest_time","time"]));
+        if(mn!=null){ const ft=(firstTime[se] ||= {}); if(ft[md]==null||mn<ft[md]) ft[md]=mn; }
+        // ops: pickup-pending backlog, RTO, open (unactioned) NDR
+        const o=(ops[se] ||= {pp:0,rto:0,ndr:0,tot:0,rr:{},nr:{}}); o.tot++;
+        const st=String(pick(row,["shipment_status"])).trim();
+        if(PICKUP_PENDING.has(st)) o.pp++;
+        const isRto=st.toUpperCase().startsWith("RTO");
+        if(isRto){ o.rto++; const rr=pick(row,["rto_reason"]); if(has(rr)) o.rr[rr]=(o.rr[rr]||0)+1; }
+        const ndrReason=pick(row,["latest_ndr_reason"]);
+        if(has(ndrReason)){ o.ndr++; o.nr[ndrReason]=(o.nr[ndrReason]||0)+1; }
+        const ae=String(pick(row,["amEmail","am_email"])).trim().toLowerCase();
+        if(!meta[se]) meta[se]={n:pick(row,["seller_name","Seller Name"])||se, ae, c:pick(row,["seller_cohort","cohort"]),
+          kam:String(pick(row,["kamName","kam","key_account_manager","KAM","kamEmail"])).trim()};
+        if(ae && !amName[ae]) amName[ae]=pick(row,["amName","am_name","AM"]);
+      }
+      el.querySelector(".sub").textContent=`reading… ${n.toLocaleString()} rows`;
+    },
+    complete:()=>{
+      RAW={counts, meta, amName, firstTime, ops, n};
+      el.classList.remove("busy"); el.classList.add("ok");
+      let dts=[...new Set(Object.values(counts).flatMap(o=>Object.keys(o)))].sort();
+      el.querySelector(".sub").textContent=`${n.toLocaleString()} rows · ${dts.length} days`;
+      buildData();
+    },
+    error:()=>{el.classList.remove("busy");el.querySelector(".sub").textContent="couldn't read file";}
+  });
+}
+
+/* load the CSV/XLSX libraries only when a file is actually uploaded (keeps initial load instant) */
+let _libsPromise=null;
+function ensureLibs(){
+  if(_libsPromise) return _libsPromise;
+  _libsPromise=new Promise(res=>{
+    let need=0; const done=()=>{ if(--need<=0) res(); };
+    const add=src=>{ need++; const s=document.createElement("script"); s.src=src; s.onload=done; s.onerror=done; document.head.appendChild(s); };
+    if(!window.Papa) add("https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js");
+    if(!window.XLSX) add("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+    if(need===0) res();
+  });
+  return _libsPromise;
+}
+document.querySelectorAll(".filedrop input").forEach(inp=>inp.addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return; const el=inp.closest(".filedrop");
+  const k=inp.dataset.kind;
+  el.classList.add("busy");
+  ensureLibs().then(()=>{
+    if(k==="targets") handleTargets(f,el);
+    else if(k==="accounts") handleAccounts(f,el);
+    else handleManifest(f,el);
+  });
+}));
+
+/* ====== wire-up ====== */
+document.getElementById("fromSel").addEventListener("change",e=>{state.from=e.target.value; if(state.to&&state.from>state.to)state.to=state.from; state.open=new Set();render();});
+document.getElementById("toSel").addEventListener("change",e=>{state.to=e.target.value; if(state.from&&state.from>state.to)state.from=state.to; state.open=new Set();render();});
+document.getElementById("presetDay").addEventListener("click",()=>{const d=(DATA.meta.lastCompleteDate&&DATA.dates.includes(DATA.meta.lastCompleteDate))?DATA.meta.lastCompleteDate:DATA.dates[DATA.dates.length-1]; state.from=d; state.to=d; state.open=new Set(); render();});
+document.getElementById("presetCycle").addEventListener("click",()=>{state.from=(DATA.meta.cycleStart&&DATA.dates.includes(DATA.meta.cycleStart))?DATA.meta.cycleStart:DATA.dates[0]; state.to=(DATA.meta.lastCompleteDate&&DATA.dates.includes(DATA.meta.lastCompleteDate))?DATA.meta.lastCompleteDate:DATA.dates[DATA.dates.length-1]; state.open=new Set(); render();});
+document.getElementById("baseSel").addEventListener("change",e=>{state.baseline=e.target.value;render();});
+document.getElementById("floorSel").addEventListener("change",e=>{state.floor=Number(e.target.value);render();});
+document.getElementById("kamSel").addEventListener("change",e=>{state.kam=e.target.value;state.am="__all__";render();});
+document.getElementById("amSel").addEventListener("change",e=>{state.am=e.target.value;render();});
+document.getElementById("sortSel").addEventListener("change",e=>{state.sort=e.target.value;renderTable(analyse().rows);});
+document.getElementById("searchInput").addEventListener("input",e=>{state.q=e.target.value;renderFilters();renderTable(analyse().rows);});
+document.getElementById("copyBtn").addEventListener("click",async()=>{
+  const t=buildSummary();
+  try{await navigator.clipboard.writeText(t);flash("Copied ✓");}
+  catch{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();flash("Copied ✓");}
+});
+function flash(m){const b=document.getElementById("copyBtn");const o=b.innerHTML;b.textContent=m;setTimeout(()=>b.innerHTML=o,1400);}
+
+render();
+
+/* ====== optional: save a JSON backup of the processed data ====== */
+document.getElementById("dlBtn").addEventListener("click",()=>{
+  if(!DATA.dates.length){ alert("Upload the daily CSV (and your Target file) first."); return; }
+  const blob=new Blob([JSON.stringify(DATA)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="manifest-watch-data.json"; document.body.appendChild(a); a.click();
+  a.remove(); URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>
