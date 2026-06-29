@@ -40,6 +40,14 @@ select{appearance:none;background:var(--surface);border:1px solid var(--line-str
 .btn svg{width:15px;height:15px}
 .btn.mini{padding:6px 9px;font-size:11.5px;font-weight:600}
 .am-drr{display:flex;gap:14px;margin-top:7px;font-size:11px;color:var(--muted)}
+.kamfilter{position:relative}
+.kamfilter-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;box-shadow:var(--shadow);padding:8px;min-width:230px;max-height:340px;overflow:auto}
+.kfp-top{display:flex;gap:6px;margin-bottom:6px}
+.kfp-act{flex:1;font-size:11px;font-weight:600;padding:5px 6px;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface-2);color:var(--ink-soft);cursor:pointer}
+.kfp-act:hover{border-color:var(--accent);color:var(--accent)}
+.kfp-row{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:12.5px;color:var(--ink);cursor:pointer}
+.kfp-row:hover{background:var(--surface-2)}
+.kfp-row input{accent-color:var(--accent);cursor:pointer}
 .am-drr b{color:var(--ink-soft);font-family:"IBM Plex Mono";font-weight:600}
 .hashelp{text-decoration:underline dotted var(--line-strong);text-underline-offset:3px;cursor:help}
 thead th[title]{cursor:help}
@@ -253,7 +261,13 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-
   <div class="kpis" id="kpis"></div>
 
   <div id="kamWrap" style="display:none">
-    <div class="sec-head"><h2>Key Account Manager rollup</h2><span class="hint">Tap to filter the board to a KAM's book</span></div>
+    <div class="sec-head">
+      <h2>Key Account Manager rollup</h2>
+      <div class="kamfilter">
+        <button class="btn mini" id="kamFilterBtn" title="Show or hide KAMs across the whole board">Filter KAMs ▾</button>
+        <div class="kamfilter-pop" id="kamFilterPop" style="display:none"></div>
+      </div>
+    </div>
     <div class="am-grid" id="kamGrid"></div>
   </div>
 
@@ -376,7 +390,8 @@ DATA.sellers.forEach(s=>{ if(s.t!=null) savedTargets[s.e]=s.t; });
 
 let DIR={}, DIR_AM={}, DIR_KAM={};   // accounts directory: email->{ae,kn,c,z}, amEmail->name, kamEmail->name
 let RAW=null;                        // cached aggregation from the daily CSV (so target/accounts uploads don't re-parse it)
-const state = {from:null, to:null, baseline:"roll7", floor:5, kam:"__all__", am:"__all__", flag:"all", sort:"impact", q:"", open:new Set(), page:1, perPage:20};
+const state = {from:null, to:null, baseline:"roll7", floor:5, kam:"__all__", am:"__all__", flag:"all", sort:"impact", q:"", open:new Set(), page:1, perPage:20, hiddenKAMs:new Set()};
+let kamPopOpen=false;
 
 function normalizeEmbed(e){
   return {dates:e.dates, amByEmail:e.amByEmail||{}, sellers:e.sellers, meta:e.meta||{}};
@@ -810,7 +825,35 @@ function render(){
     (a.pullTime!=null?` · today's pull ~<b>${hhmm(a.pullTime)}</b>`:``)+
     (partial?` <span style="color:var(--crit);font-weight:600">· ${niceDate(a.to)} is partial</span>`:``);
   document.getElementById("thVolText").textContent = single ? "Manifested · day" : "Manifested (period)";
+  const allKamNames=[...new Set(a.rows.map(r=>r.kam).filter(Boolean))].sort();
+  renderKamFilter(allKamNames);
+  if(state.hiddenKAMs.size) a.rows=a.rows.filter(r=> !(r.kam && state.hiddenKAMs.has(r.kam)));
   buildSelects(a.rows); renderKPIs(a); renderKAMs(a.rows); renderAMs(a.rows); renderFilters(); renderTable(a.rows);
+}
+function renderKamFilter(names){
+  const btn=document.getElementById("kamFilterBtn"), pop=document.getElementById("kamFilterPop");
+  if(!names.length){ btn.style.display="none"; pop.style.display="none"; return; }
+  btn.style.display="";
+  // drop stale hidden names no longer present
+  [...state.hiddenKAMs].forEach(n=>{ if(!names.includes(n)) state.hiddenKAMs.delete(n); });
+  const hidden=state.hiddenKAMs.size;
+  btn.textContent = hidden ? `KAMs · ${names.length-hidden}/${names.length} shown ▾` : "Filter KAMs ▾";
+  pop.style.display = kamPopOpen ? "block" : "none";
+  if(kamPopOpen){
+    pop.innerHTML =
+      `<div class="kfp-top"><button class="kfp-act" data-act="all">Show all</button><button class="kfp-act" data-act="none">Hide all</button></div>`+
+      names.map(n=>`<label class="kfp-row"><input type="checkbox" data-kam="${n.replace(/"/g,'&quot;')}" ${state.hiddenKAMs.has(n)?"":"checked"}><span>${n}</span></label>`).join("");
+    pop.querySelectorAll("input[data-kam]").forEach(cb=>cb.addEventListener("change",()=>{
+      const n=cb.dataset.kam;
+      if(cb.checked) state.hiddenKAMs.delete(n); else state.hiddenKAMs.add(n);
+      render();
+    }));
+    pop.querySelectorAll(".kfp-act").forEach(b=>b.addEventListener("click",()=>{
+      if(b.dataset.act==="all") state.hiddenKAMs.clear();
+      else names.forEach(n=>state.hiddenKAMs.add(n));
+      render();
+    }));
+  }
 }
 
 const FLAG_LABEL={overdue:"Overdue · call now",drop:"CALL · drops",silent:"Went silent",decline:"3-day slide",behind:"Behind target pace",lowpick:"Low pick-up",pickup:"Pickup pending",rto:"High RTO",ndr:"Open NDRs"};
@@ -1169,6 +1212,8 @@ document.getElementById("sortSel").addEventListener("change",e=>{state.sort=e.ta
 document.getElementById("searchInput").addEventListener("input",e=>{state.q=e.target.value;state.page=1;renderFilters();renderTable(analyse().rows);});
 document.getElementById("perPageSel").addEventListener("change",e=>{state.perPage=+e.target.value;state.page=1;renderTable(analyse().rows);});
 document.getElementById("exportBtn").addEventListener("click",exportCSV);
+document.getElementById("kamFilterBtn").addEventListener("click",e=>{e.stopPropagation();kamPopOpen=!kamPopOpen;render();});
+document.addEventListener("click",e=>{ if(kamPopOpen && !e.target.closest(".kamfilter")){ kamPopOpen=false; document.getElementById("kamFilterPop").style.display="none"; } });
 document.getElementById("copyBtn").addEventListener("click",async()=>{
   const t=buildSummary();
   try{await navigator.clipboard.writeText(t);flash("Copied ✓");}
