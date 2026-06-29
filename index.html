@@ -347,6 +347,21 @@ const kamOf = s => (s.kam && String(s.kam).trim()) || KAM_MAP[s.ae] || "";
 /* thresholds for the fulfilment-ops flags (cumulative over the file) */
 const OPS = { pickupMin:5, rtoRate:0.20, rtoMinShip:10, ndrMin:5, ndrEnabled:false, pickRate:0.80, pickMin:10 };
 
+/* KAM = the "shippingOwner" in the accounts directory. Names for specific owners; others derived from the email. */
+const KAM_NAMES = {
+  "reddy.n@flipkart.com": "RNS Yashwant",
+  "dhriti.sharma@flipkart.com": "Dhriti Sharma",
+  "sourabh.rajak@flipkart.com": "Sourabh Rajak"
+};
+function kamNameFromEmail(email){
+  if(!email) return "";
+  const k=email.toLowerCase();
+  if(KAM_NAMES[k]) return KAM_NAMES[k];
+  const local=k.split("@")[0];
+  const parts=local.split(/[._]+/).filter(p=>p && p!=="vc");
+  return parts.map(p=>p.charAt(0).toUpperCase()+p.slice(1)).join(" ") || k;
+}
+
 /* ====== targets come entirely from targets.csv in the repo (no data embedded here) ====== */
 const TARGETS = {};
 
@@ -900,14 +915,17 @@ function parseAccountRows(rowsArr){
   const find=re=>H.find(h=>re.test(String(h)));
   const idC=find(/seller\s*email|^email$|sellerEmail/i)||H[0];
   const amNC=find(/am\s*name|amName/i), amEC=find(/am\s*email|amEmail/i);
-  const kmNC=find(/kam\s*name|kamName|sam\s*name|samName/i), kmEC=find(/kam\s*email|kamEmail|sam\s*email|samEmail/i);
+  const soC=find(/shipping\s*owner|shippingOwner/i);                              // KAM source
+  const kmNC=find(/kam\s*name|kamName|sam\s*name|samName/i), kmEC=find(/kam\s*email|kamEmail|sam\s*email|samEmail/i);  // fallback
   const cohC=find(/cohort/i), zC=find(/zone/i);
   DIR={}; const amTally={}, kmTally={};
   const clean=v=>{const s=String(v==null?"":v).trim(); return (s&&s.toLowerCase()!=="nan")?s:"";};
   rowsArr.forEach(r=>{
     const e=clean(r[idC]).toLowerCase(); if(!e) return;
     const ae=amEC?clean(r[amEC]).toLowerCase():""; const an=amNC?clean(r[amNC]):"";
-    const ke=kmEC?clean(r[kmEC]).toLowerCase():""; const kn=kmNC?clean(r[kmNC]):"";
+    let ke="", kn="";
+    if(soC && clean(r[soC])){ ke=clean(r[soC]).toLowerCase(); kn=kamNameFromEmail(ke); }   // KAM = shipping owner
+    else if(kmEC || kmNC){ ke=kmEC?clean(r[kmEC]).toLowerCase():""; kn=kmNC?clean(r[kmNC]):""; }
     DIR[e]={ae, an, ke, kn, c:cohC?clean(r[cohC]):"", z:zC?clean(r[zC]):""};
     if(ae&&an){ (amTally[ae] ||= {})[an]=(amTally[ae][an]||0)+1; }
     if(ke&&kn){ (kmTally[ke] ||= {})[kn]=(kmTally[ke][kn]||0)+1; }
