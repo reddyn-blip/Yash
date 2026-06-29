@@ -215,11 +215,6 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-
       <div class="field"><label for="fromSel" title="Start of the window used for Average DRR and totals">From</label><select id="fromSel"></select></div>
       <div class="field"><label for="toSel" title="End of the window — also the day used for today's CALL / overdue flags">To</label><select id="toSel"></select></div>
       <div class="field"><label>&nbsp;</label><span><button class="btn mini" id="presetDay" title="View a single day (From = To = last complete day)">Single day</button> <button class="btn mini" id="presetCycle" title="View the whole business cycle to date">Cycle</button></span></div>
-      <div class="field"><label for="baseSel" title="What today is compared against to flag a CALL. Rolling 7-day avg = the seller's own average over the previous 7 days; Cycle-to-date avg = average per day since the 26th (matches your macro).">Baseline</label>
-        <select id="baseSel">
-          <option value="roll7">Rolling 7-day avg</option>
-          <option value="mtd">Cycle-to-date avg (your macro)</option>
-        </select></div>
       <div class="field"><label for="floorSel" title="Sellers below this average daily volume are never flagged, so tiny accounts don't create noise.">Min DRR to flag</label>
         <select id="floorSel"><option value="0">All sellers</option><option value="2">≥ 2/day</option><option value="5" selected>≥ 5/day</option><option value="10">≥ 10/day</option></select></div>
       <button class="btn" id="copyBtn" title="Copy a plain-text rundown to share with the team">
@@ -792,7 +787,7 @@ function render(){
     (single
       ? `Single day · <b>${niceDate(a.to)}</b>`
       : `Period <b>${niceDate(a.from)} – ${niceDate(a.to)}</b> <span style="color:var(--faint)">(${a.winDays} days)</span>`)+
-    ` · baseline <b>${state.baseline==="mtd"?"cycle-to-date":"rolling 7-day"}</b> · cycle <b>${niceDate(a.cycleStart)} – ${niceDate(a.cycleEnd)}</b>`+
+    ` · vs <b>rolling-7-day baseline</b> · cycle <b>${niceDate(a.cycleStart)} – ${niceDate(a.cycleEnd)}</b>`+
     (a.pullTime!=null?` · today's pull ~<b>${hhmm(a.pullTime)}</b>`:``)+
     (partial?` <span style="color:var(--crit);font-weight:600">· ${niceDate(a.to)} is partial</span>`:``);
   document.getElementById("thVolText").textContent = single ? "Manifested · day" : "Manifested (period)";
@@ -846,7 +841,7 @@ function amBlock(rs, indent){
 function buildSummary(){
   const {rows,asOf}=analyse();
   if(!rows.length) return "No data loaded yet — upload your Target file and daily CSV first.";
-  let out=`MANIFEST WATCH — ${niceDate(asOf)}\nBaseline: ${state.baseline==="mtd"?"cycle-to-date":"rolling 7-day"} DRR. Flags only for sellers ≥${state.floor}/day.\n\n`;
+  let out=`MANIFEST WATCH — ${niceDate(asOf)}\nBaseline: rolling 7-day DRR. Flags only for sellers ≥${state.floor}/day.\n\n`;
   const hasKam=rows.some(r=>r.kam);
   const groupAM=list=>{const m={};list.forEach(r=>{(m[r.ae||""] ||= []).push(r);});return Object.values(m).sort((a,b)=>amName(a[0].ae).localeCompare(amName(b[0].ae)));};
   if(hasKam){
@@ -1077,7 +1072,6 @@ document.getElementById("fromSel").addEventListener("change",e=>{state.from=e.ta
 document.getElementById("toSel").addEventListener("change",e=>{state.to=e.target.value; if(state.from&&state.from>state.to)state.from=state.to; state.open=new Set();render();});
 document.getElementById("presetDay").addEventListener("click",()=>{const d=(DATA.meta.lastCompleteDate&&DATA.dates.includes(DATA.meta.lastCompleteDate))?DATA.meta.lastCompleteDate:DATA.dates[DATA.dates.length-1]; state.from=d; state.to=d; state.open=new Set(); render();});
 document.getElementById("presetCycle").addEventListener("click",()=>{state.from=(DATA.meta.cycleStart&&DATA.dates.includes(DATA.meta.cycleStart))?DATA.meta.cycleStart:DATA.dates[0]; state.to=(DATA.meta.lastCompleteDate&&DATA.dates.includes(DATA.meta.lastCompleteDate))?DATA.meta.lastCompleteDate:DATA.dates[DATA.dates.length-1]; state.open=new Set(); render();});
-document.getElementById("baseSel").addEventListener("change",e=>{state.baseline=e.target.value;render();});
 document.getElementById("floorSel").addEventListener("change",e=>{state.floor=Number(e.target.value);render();});
 document.getElementById("kamSel").addEventListener("change",e=>{state.kam=e.target.value;state.am="__all__";render();});
 document.getElementById("amSel").addEventListener("change",e=>{state.am=e.target.value;render();});
