@@ -117,7 +117,18 @@ thead th[title]{cursor:help}
 .search svg{width:15px;height:15px;color:var(--faint);flex-shrink:0}
 
 .tablecard{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
-.tablescroll{overflow-x:auto}
+.tablescroll{overflow:auto;max-height:72vh}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line);background:var(--surface-2)}
+.pager-count{font-size:12px;color:var(--muted);font-family:"IBM Plex Mono"}
+.pager-right{display:flex;align-items:center;gap:14px}
+.pager-pp{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+.pager-pp select{font-family:"IBM Plex Sans";font-size:12px;padding:4px 6px;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface);color:var(--ink);font-weight:600}
+.pager-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pg{min-width:30px;height:30px;padding:0 8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);border-radius:7px;font-family:"IBM Plex Mono";font-size:12px;font-weight:600;cursor:pointer}
+.pg:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pg.cur{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pg:disabled{opacity:.4;cursor:default}
+.pg.gap{border:none;background:none;cursor:default;min-width:16px;color:var(--faint)}
 table{width:100%;border-collapse:collapse;min-width:1420px}
 thead th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--surface-2);white-space:nowrap;position:sticky;top:0;z-index:2}
 thead th.num{text-align:right}
@@ -288,6 +299,15 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-
         <tbody id="tbody"></tbody>
       </table>
     </div>
+    <div class="pager" id="pager" style="display:none">
+      <span class="pager-count" id="pagerCount"></span>
+      <div class="pager-right">
+        <label class="pager-pp">Rows
+          <select id="perPageSel"><option value="20">20</option><option value="50">50</option><option value="100">100</option></select>
+        </label>
+        <div class="pager-nums" id="pagerNums"></div>
+      </div>
+    </div>
   </div>
 
   <footer>
@@ -340,7 +360,7 @@ DATA.sellers.forEach(s=>{ if(s.t!=null) savedTargets[s.e]=s.t; });
 
 let DIR={}, DIR_AM={}, DIR_KAM={};   // accounts directory: email->{ae,kn,c,z}, amEmail->name, kamEmail->name
 let RAW=null;                        // cached aggregation from the daily CSV (so target/accounts uploads don't re-parse it)
-const state = {from:null, to:null, baseline:"roll7", floor:5, kam:"__all__", am:"__all__", flag:"all", sort:"impact", q:"", open:new Set()};
+const state = {from:null, to:null, baseline:"roll7", floor:5, kam:"__all__", am:"__all__", flag:"all", sort:"impact", q:"", open:new Set(), page:1, perPage:20};
 
 function normalizeEmbed(e){
   return {dates:e.dates, amByEmail:e.amByEmail||{}, sellers:e.sellers, meta:e.meta||{}};
@@ -629,9 +649,12 @@ function renderTable(rows){
   };
   r.sort(S[state.sort]||S.impact);
 
-  const tb=document.getElementById("tbody");
-  if(!r.length){tb.innerHTML=`<tr><td colspan="13"><div class="empty"><b>No sellers match</b>Clear the search or pick another manager.</div></td></tr>`;return;}
-  tb.innerHTML=r.map(x=>{
+  const tb=document.getElementById("tbody"), pager=document.getElementById("pager");
+  if(!r.length){tb.innerHTML=`<tr><td colspan="13"><div class="empty"><b>No sellers match</b>Clear the search or pick another manager.</div></td></tr>`; pager.style.display="none"; return;}
+  const total=r.length, pages=Math.max(1,Math.ceil(total/state.perPage));
+  if(state.page>pages) state.page=pages; if(state.page<1) state.page=1;
+  const pageRows=r.slice((state.page-1)*state.perPage, state.page*state.perPage);
+  tb.innerHTML=pageRows.map(x=>{
     const dCls=x.deltaPct==null?"flat":x.deltaPct===Infinity?"pos":x.deltaPct>0?"pos":x.deltaPct<0?"neg":"flat";
     const wCls=x.wow==null?"flat":x.wow>=15?"pos":x.wow<=-15?"neg":"flat";
     let mtd="—";
@@ -670,6 +693,33 @@ function renderTable(rows){
   tb.querySelectorAll("tr.main").forEach(tr=>tr.addEventListener("click",()=>{
     const e=tr.dataset.e; state.open.has(e)?state.open.delete(e):state.open.add(e); renderTable(analyse().rows);
   }));
+  renderPager(total, pages);
+}
+function pageList(cur,pages){
+  const want=new Set([1,2,pages-1,pages,cur-1,cur,cur+1]);
+  const arr=[...want].filter(p=>p>=1&&p<=pages).sort((a,b)=>a-b);
+  const out=[]; let prev=0;
+  arr.forEach(p=>{ if(p-prev>1) out.push("…"); out.push(p); prev=p; });
+  return out;
+}
+function renderPager(total,pages){
+  const pager=document.getElementById("pager");
+  pager.style.display="flex";
+  const from=(state.page-1)*state.perPage+1, to=Math.min(total,state.page*state.perPage);
+  document.getElementById("pagerCount").textContent=`${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()} accounts`;
+  document.getElementById("perPageSel").value=String(state.perPage);
+  let html=`<button class="pg" data-pg="prev" ${state.page<=1?"disabled":""}>‹ Prev</button>`;
+  pageList(state.page,pages).forEach(p=>{
+    html += p==="…" ? `<span class="pg gap">…</span>` : `<button class="pg ${p===state.page?'cur':''}" data-pg="${p}">${p}</button>`;
+  });
+  html+=`<button class="pg" data-pg="next" ${state.page>=pages?"disabled":""}>Next ›</button>`;
+  const nums=document.getElementById("pagerNums"); nums.innerHTML=html;
+  nums.querySelectorAll("button[data-pg]").forEach(b=>b.addEventListener("click",()=>{
+    const v=b.dataset.pg;
+    state.page = v==="prev" ? Math.max(1,state.page-1) : v==="next" ? Math.min(pages,state.page+1) : +v;
+    renderTable(analyse().rows);
+    document.querySelector(".tablescroll").scrollTop=0;
+  }));
 }
 function buildSelects(rows){
   const opts=DATA.dates.slice().reverse().map(d=>{
@@ -700,10 +750,12 @@ function emptyState(){
   document.getElementById("toSel").innerHTML="";
   document.getElementById("amSel").innerHTML=`<option value="__all__">All managers</option>`;
   document.getElementById("kamSel").innerHTML=`<option value="__all__">All KAMs</option>`;
+  const pg=document.getElementById("pager"); if(pg) pg.style.display="none";
   document.getElementById("tbody").innerHTML=`<tr><td colspan="13"><div class="empty"><b>No data loaded yet</b>Use the tiles above the table: drop your Target file first, then the daily report CSV. Your files are read in your browser and never uploaded anywhere.</div></td></tr>`;
 }
 function render(){
   if(!DATA.dates.length){ emptyState(); return; }
+  state.page=1;
   const a=analyse();
   const partial = a.asOf===DATA.meta.pullDate && a.asOf!==DATA.meta.lastCompleteDate;
   const single = a.from===a.to;
@@ -989,8 +1041,9 @@ document.getElementById("baseSel").addEventListener("change",e=>{state.baseline=
 document.getElementById("floorSel").addEventListener("change",e=>{state.floor=Number(e.target.value);render();});
 document.getElementById("kamSel").addEventListener("change",e=>{state.kam=e.target.value;state.am="__all__";render();});
 document.getElementById("amSel").addEventListener("change",e=>{state.am=e.target.value;render();});
-document.getElementById("sortSel").addEventListener("change",e=>{state.sort=e.target.value;renderTable(analyse().rows);});
-document.getElementById("searchInput").addEventListener("input",e=>{state.q=e.target.value;renderFilters();renderTable(analyse().rows);});
+document.getElementById("sortSel").addEventListener("change",e=>{state.sort=e.target.value;state.page=1;renderTable(analyse().rows);});
+document.getElementById("searchInput").addEventListener("input",e=>{state.q=e.target.value;state.page=1;renderFilters();renderTable(analyse().rows);});
+document.getElementById("perPageSel").addEventListener("change",e=>{state.perPage=+e.target.value;state.page=1;renderTable(analyse().rows);});
 document.getElementById("copyBtn").addEventListener("click",async()=>{
   const t=buildSummary();
   try{await navigator.clipboard.writeText(t);flash("Copied ✓");}
