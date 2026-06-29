@@ -288,17 +288,15 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-
       <table>
         <thead><tr>
           <th>Seller</th>
-          <th title="Key Account Manager — the senior owner above the AM, from your Target sheet."><span class="hashelp">Key AM</span></th>
-          <th title="Account Manager who owns this seller."><span class="hashelp">Manager</span></th>
-          <th class="num" id="thVol" title="Shipments on the 'To' day (single-day view), or the total over the selected From–To window (range view)."><span class="hashelp" id="thVolText">Today</span></th>
+          <th title="Key Account Manager — the senior owner above the AM."><span class="hashelp">KAM</span></th>
+          <th title="Account Manager who owns this seller."><span class="hashelp">AM</span></th>
+          <th class="num" id="thVol" title="Shipments manifested over the selected From–To window (or the single chosen day)."><span class="hashelp" id="thVolText">Manifested (period)</span></th>
           <th title="The seller's usual first-manifest time (median of recent days), with today's status: done, awaiting, or overdue."><span class="hashelp">Manifest time</span></th>
-          <th class="num" title="Average shipments per day over the selected From–To period (Avg DRR)."><span class="hashelp">Avg DRR</span></th>
-          <th class="num" title="Target daily run rate · target volume (Target DRR × days in the cycle)."><span class="hashelp">Target</span></th>
-          <th class="num" title="Today vs the seller's baseline. Beyond ±15% triggers a CALL."><span class="hashelp">Δ vs base</span></th>
-          <th class="num" title="Week-on-week: this week's average DRR vs last week's."><span class="hashelp">WoW</span></th>
-          <th title="Daily shipments over the last 14 days; the dashed line is the baseline."><span class="hashelp">14-day trend</span></th>
-          <th class="num" title="Cycle-to-date DRR ÷ Target DRR. Under 90% = behind pace."><span class="hashelp">Pace</span></th>
-          <th title="Fulfilment health: 🚚 shipments awaiting pickup · ↩ RTO (return) rate. Open the row for the full breakdown including NDR rate."><span class="hashelp">Ops</span></th>
+          <th class="num" title="Daily run rate cycle-to-date: volume since the 26th ÷ days elapsed (to the To day)."><span class="hashelp">DRR MTD</span></th>
+          <th class="num" title="Target daily run rate from your Target file. Target volume = Target DRR × days in the cycle."><span class="hashelp">Target DRR</span></th>
+          <th class="num" title="Shipments picked up over the selected window, and that as a % of manifested."><span class="hashelp">Picked</span></th>
+          <th class="num" title="DRR MTD ÷ Target DRR. 100% = on track for the monthly target; under 90% = behind pace."><span class="hashelp">Pace</span></th>
+          <th title="Fulfilment health: 📦 picked % · 🚚 awaiting pickup · ↩ RTO rate. Open the row for the full breakdown."><span class="hashelp">Ops</span></th>
           <th title="Action flags for this seller."><span class="hashelp">Status</span></th>
         </tr></thead>
         <tbody id="tbody"></tbody>
@@ -622,11 +620,6 @@ function detailRow(r){
   const cell=(l,v,sub)=>`<div class="dm"><span class="dl">${l}</span><span class="dv">${v}${sub?` <small>${sub}</small>`:""}</span></div>`;
   const box=(title,cells)=>`<div class="dbox"><div class="dbox-h">${title}</div><div class="dbox-g">${cells}</div></div>`;
   return `<div class="detail-inner">
-    ${box("Ownership",
-      cell("Manager (AM)", amName(r.ae)||"—")+
-      cell("Key AM", r.kam||"—")+
-      cell("Seller email", `<span class="mono" style="font-size:12px">${r.e}</span>`)
-    )}
     ${box("DRR · run rate",
       cell("Avg DRR (period)",fmt1(r.avgDRR),"selected window")+
       cell("DRR MTD",fmt1(r.drrMTD),"cycle to date")+
@@ -684,7 +677,7 @@ function renderTable(rows){
   r.sort(S[state.sort]||S.impact);
 
   const tb=document.getElementById("tbody"), pager=document.getElementById("pager");
-  if(!r.length){tb.innerHTML=`<tr><td colspan="13"><div class="empty"><b>No sellers match</b>Clear the search or pick another manager.</div></td></tr>`; pager.style.display="none"; return;}
+  if(!r.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty"><b>No sellers match</b>Clear the search or pick another manager.</div></td></tr>`; pager.style.display="none"; return;}
   const total=r.length, pages=Math.max(1,Math.ceil(total/state.perPage));
   if(state.page>pages) state.page=pages; if(state.page<1) state.page=1;
   const pageRows=r.slice((state.page-1)*state.perPage, state.page*state.perPage);
@@ -701,6 +694,9 @@ function renderTable(rows){
     else if(x.etime!=null)mstat=`<span class="mt-stat mt-wait">awaiting</span>`;
     else                  mstat=`<span class="mt-stat mt-wait">—</span>`;
     const mtime=`<div class="mtime"><span class="mt-usual">${x.etime!=null?"~"+hhmm(x.etime):"—"}</span>${mstat}</div>`;
+    const picked = x.pickRate!=null
+      ? `${fmt(x.pickedWin)} <span style="color:${x.lowPick?'var(--crit)':'var(--faint)'};font-weight:600">· ${(x.pickRate*100).toFixed(0)}%</span>`
+      : "—";
     const o=x.op||{pp:0,rrate:0,ndr:0};
     const opChips=[
       x.pickRate!=null?`<span class="opchip ${x.lowPick?'hot':''}" title="${fmt(x.pickedWin)} of ${fmt(state.from===state.to?x.today:x.periodVol)} picked up">📦 ${(x.pickRate*100).toFixed(0)}%</span>`:"",
@@ -715,15 +711,13 @@ function renderTable(rows){
       <td class="s-am">${amName(x.ae)}</td>
       <td class="num">${fmt(state.from===state.to? x.today : x.periodVol)}</td>
       <td>${mtime}</td>
-      <td class="num">${fmt1(x.avgDRR)}</td>
+      <td class="num">${fmt1(x.drrMTD)}</td>
       <td class="num">${tgt}</td>
-      <td class="num"><span class="delta ${dCls}">${fmtPct(x.deltaPct)}</span></td>
-      <td class="num"><span class="delta ${wCls}">${fmtPct(x.wow)}</span></td>
-      <td>${sparkline(x.spark,x.baseline)}</td>
+      <td class="num">${picked}</td>
       <td class="num">${mtd}</td>
       <td><div class="opcell">${opChips}</div></td>
       <td>${badges(x)}</td>
-    </tr>${open?`<tr class="detail"><td colspan="13">${detailRow(x)}</td></tr>`:""}`;
+    </tr>${open?`<tr class="detail"><td colspan="11">${detailRow(x)}</td></tr>`:""}`;
   }).join("");
   tb.querySelectorAll("tr.main").forEach(tr=>tr.addEventListener("click",()=>{
     const e=tr.dataset.e; state.open.has(e)?state.open.delete(e):state.open.add(e); renderTable(analyse().rows);
@@ -786,7 +780,7 @@ function emptyState(){
   document.getElementById("amSel").innerHTML=`<option value="__all__">All managers</option>`;
   document.getElementById("kamSel").innerHTML=`<option value="__all__">All KAMs</option>`;
   const pg=document.getElementById("pager"); if(pg) pg.style.display="none";
-  document.getElementById("tbody").innerHTML=`<tr><td colspan="13"><div class="empty"><b>No data loaded yet</b>Use the tiles above the table: drop your Target file first, then the daily report CSV. Your files are read in your browser and never uploaded anywhere.</div></td></tr>`;
+  document.getElementById("tbody").innerHTML=`<tr><td colspan="11"><div class="empty"><b>No data loaded yet</b>Use the tiles above the table: drop your Target file first, then the daily report CSV. Your files are read in your browser and never uploaded anywhere.</div></td></tr>`;
 }
 function render(){
   if(!DATA.dates.length){ emptyState(); return; }
@@ -801,7 +795,7 @@ function render(){
     ` · baseline <b>${state.baseline==="mtd"?"cycle-to-date":"rolling 7-day"}</b> · cycle <b>${niceDate(a.cycleStart)} – ${niceDate(a.cycleEnd)}</b>`+
     (a.pullTime!=null?` · today's pull ~<b>${hhmm(a.pullTime)}</b>`:``)+
     (partial?` <span style="color:var(--crit);font-weight:600">· ${niceDate(a.to)} is partial</span>`:``);
-  document.getElementById("thVolText").textContent = single ? "Today" : `Vol (${a.winDays}d)`;
+  document.getElementById("thVolText").textContent = single ? "Manifested · day" : "Manifested (period)";
   buildSelects(a.rows); renderKPIs(a); renderKAMs(a.rows); renderAMs(a.rows); renderFilters(); renderTable(a.rows);
 }
 
