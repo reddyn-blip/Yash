@@ -140,9 +140,11 @@ tbody tr.main:hover{background:var(--surface-2)}
 .s-email{font-size:11px;color:var(--faint)}
 .s-am{font-size:12px;color:var(--muted)}
 td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-numeric:tabular-nums;font-weight:500}
+.cnum{text-align:center;font-family:"IBM Plex Mono";font-variant-numeric:tabular-nums;font-weight:500}
+thead th.cnum{text-align:center}
 .delta{font-weight:600;font-family:"IBM Plex Mono";white-space:nowrap}
 .delta.pos{color:var(--good)}.delta.neg{color:var(--crit)}.delta.flat{color:var(--muted)}
-.mtd-wrap{display:flex;align-items:center;gap:9px;justify-content:flex-end}
+.mtd-wrap{display:flex;align-items:center;gap:9px;justify-content:center}
 .mtd-bar{width:54px;height:6px;border-radius:4px;background:var(--line);overflow:hidden;flex-shrink:0}
 .mtd-bar i{display:block;height:100%;border-radius:4px}
 .badges{display:flex;gap:5px;flex-wrap:wrap}
@@ -158,7 +160,7 @@ td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-numeric:tabular
 .badge.rto{background:#F3E8FF;color:#6B21A8;border:1px solid #E3CDF7}
 .badge.ndr{background:#FDE7F0;color:#9B1B52;border:1px solid #F4C4D8}
 .badge.ok{background:var(--surface-2);color:var(--faint);border:1px solid var(--line)}
-.mtime{display:flex;flex-direction:column;gap:2px;line-height:1.2}
+.mtime{display:flex;flex-direction:column;gap:2px;line-height:1.2;align-items:center}
 .mt-usual{font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-soft);font-weight:500}
 .mt-stat{font-size:10.5px;font-weight:600}
 .mt-ok{color:var(--good)} .mt-late{color:var(--crit)} .mt-wait{color:var(--faint)}
@@ -285,12 +287,12 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-
           <th>Seller</th>
           <th title="Key Account Manager — the senior owner above the AM."><span class="hashelp">KAM</span></th>
           <th title="Account Manager who owns this seller."><span class="hashelp">AM</span></th>
-          <th class="num" id="thVol" title="Shipments manifested over the selected From–To window (or the single chosen day)."><span class="hashelp" id="thVolText">Manifested (period)</span></th>
-          <th title="The seller's usual first-manifest time (median of recent days), with today's status: done, awaiting, or overdue."><span class="hashelp">Manifest time</span></th>
-          <th class="num" title="Daily run rate cycle-to-date: volume since the 26th ÷ days elapsed (to the To day)."><span class="hashelp">DRR MTD</span></th>
-          <th class="num" title="Target daily run rate from your Target file. Target volume = Target DRR × days in the cycle."><span class="hashelp">Target DRR</span></th>
-          <th class="num" title="Shipments picked up over the selected window, and that as a % of manifested."><span class="hashelp">Picked</span></th>
-          <th class="num" title="DRR MTD ÷ Target DRR. 100% = on track for the monthly target; under 90% = behind pace."><span class="hashelp">Pace</span></th>
+          <th class="cnum" id="thVol" title="Shipments manifested over the selected From–To window (or the single chosen day)."><span class="hashelp" id="thVolText">Manifested (period)</span></th>
+          <th class="cnum" title="The seller's usual first-manifest time (median of recent days), with today's status: done, awaiting, or overdue."><span class="hashelp">Manifest time</span></th>
+          <th class="cnum" title="Daily run rate cycle-to-date: volume since the 26th ÷ days elapsed (to the To day)."><span class="hashelp">DRR MTD</span></th>
+          <th class="cnum" title="Target daily run rate from your Target file. Target volume = Target DRR × days in the cycle."><span class="hashelp">Target DRR</span></th>
+          <th class="cnum" title="Shipments picked up over the selected window, and that as a % of manifested."><span class="hashelp">Picked</span></th>
+          <th class="cnum" title="DRR MTD ÷ Target DRR. 100% = on track for the monthly target; under 90% = behind pace."><span class="hashelp">Pace</span></th>
           <th title="Fulfilment health: 📦 picked % · 🚚 awaiting pickup · ↩ RTO rate. Open the row for the full breakdown."><span class="hashelp">Ops</span></th>
           <th title="Action flags for this seller."><span class="hashelp">Status</span></th>
         </tr></thead>
@@ -641,8 +643,7 @@ function detailRow(r){
       cell("Manifested vs picked", r.pickRate!=null?`${(r.pickRate*100).toFixed(0)}%`:"—", `${fmt(r.notPicked||0)} not picked`)+
       cell("Pickup pending", (r.op&&r.op.pp)||0, "awaiting pickup")+
       cell("RTO rate", r.op?((r.op.rrate*100).toFixed(0)+"%"):"—", r.op&&r.op.trr?`${r.op.trr} · ${(r.op.trrP*100).toFixed(0)}% of RTOs`:"")+
-      cell("NDR-tagged", r.op?((r.op.nrate*100).toFixed(0)+"%"):"—", r.op&&r.op.tnr?`${r.op.tnr} · ${(r.op.tnrP*100).toFixed(0)}% of NDRs`:"informational")+
-      cell("Total shipments (file)", (r.op&&r.op.tot)||0)
+      cell("NDR-tagged", r.op?((r.op.nrate*100).toFixed(0)+"%"):"—", r.op&&r.op.tnr?`${r.op.tnr} · ${(r.op.tnrP*100).toFixed(0)}% of NDRs`:"informational")
     )}
   </div>`;
 }
@@ -704,12 +705,12 @@ function renderTable(rows){
       <td><span class="caret">▶</span> <span class="s-name">${x.n}</span>${x.c?`<span class="s-cohort">${x.c}</span>`:""}<br><span class="s-email">${x.e}</span></td>
       <td class="s-am">${x.kam||"—"}</td>
       <td class="s-am">${amName(x.ae)}</td>
-      <td class="num">${fmt(state.from===state.to? x.today : x.periodVol)}</td>
-      <td>${mtime}</td>
-      <td class="num">${fmt1(x.drrMTD)}</td>
-      <td class="num">${tgt}</td>
-      <td class="num">${picked}</td>
-      <td class="num">${mtd}</td>
+      <td class="cnum">${fmt(state.from===state.to? x.today : x.periodVol)}</td>
+      <td class="cnum">${mtime}</td>
+      <td class="cnum">${fmt1(x.drrMTD)}</td>
+      <td class="cnum">${tgt}</td>
+      <td class="cnum">${picked}</td>
+      <td class="cnum">${mtd}</td>
       <td><div class="opcell">${opChips}</div></td>
       <td>${badges(x)}</td>
     </tr>${open?`<tr class="detail"><td colspan="11">${detailRow(x)}</td></tr>`:""}`;
@@ -787,7 +788,6 @@ function render(){
     (single
       ? `Single day · <b>${niceDate(a.to)}</b>`
       : `Period <b>${niceDate(a.from)} – ${niceDate(a.to)}</b> <span style="color:var(--faint)">(${a.winDays} days)</span>`)+
-    ` · vs <b>rolling-7-day baseline</b> · cycle <b>${niceDate(a.cycleStart)} – ${niceDate(a.cycleEnd)}</b>`+
     (a.pullTime!=null?` · today's pull ~<b>${hhmm(a.pullTime)}</b>`:``)+
     (partial?` <span style="color:var(--crit);font-weight:600">· ${niceDate(a.to)} is partial</span>`:``);
   document.getElementById("thVolText").textContent = single ? "Manifested · day" : "Manifested (period)";
