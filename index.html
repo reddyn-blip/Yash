@@ -431,7 +431,7 @@ function analyse(){
     const volLeft=tVol!=null?tVol-volMTD:null;
     const drrNeeded=(tVol!=null&&remaining>0)?Math.max(0,volLeft/remaining):null;
     const pacePct=tDRR? drrMTD/tDRR*100 : null;
-    const gap=tDRR!=null? tDRR-drrMTD : null;
+    const gap=tDRR!=null? drrMTD-tDRR : null;
     const behindPace = eligible && pacePct!=null && pacePct<90 && drrMTD>0;
 
     // WoW DRR growth
@@ -504,7 +504,7 @@ function badges(r){
   if(r.behindPace) b.push(`<span class="badge pace" title="Cycle-to-date run rate is under 90% of the target DRR — behind the monthly pace.">Behind pace</span>`);
   if(r.lowPick)    b.push(`<span class="badge lowpick" title="Only ${(r.pickRate*100).toFixed(0)}% of this seller's manifested shipments were picked up in the selected window — chase the pickup.">Low pick-up ${(r.pickRate*100).toFixed(0)}%</span>`);
   if(r.pickupFlag) b.push(`<span class="badge pickup" title="${r.op.pp} shipments manifested but still awaiting pickup (status: pickup pending / not picked / out for pickup).">Pickup pending ${r.op.pp}</span>`);
-  if(r.rtoFlag)    b.push(`<span class="badge rto" title="${(r.op.rrate*100).toFixed(0)}% of this seller's shipments went RTO${r.op.trr?` · top reason: ${r.op.trr}`:""}.">RTO ${(r.op.rrate*100).toFixed(0)}%</span>`);
+  if(r.rtoFlag)    b.push(`<span class="badge rto" title="${(r.op.rrate*100).toFixed(0)}% of this seller's shipments went RTO${r.op.trr?` · top reason: ${r.op.trr} (${(r.op.trrP*100).toFixed(0)}% of RTOs)`:""}.">RTO ${(r.op.rrate*100).toFixed(0)}%</span>`);
   if(r.ndrFlag)    b.push(`<span class="badge ndr" title="${r.op.ndr} live NDRs with no seller action yet${r.op.tnr?` · top reason: ${r.op.tnr}`:""}.">NDR open ${r.op.ndr}</span>`);
   if(!b.length) b.push(`<span class="badge ok" title="No action flags — within normal range.">Observe</span>`);
   return `<div class="badges">${b.join("")}</div>`;
@@ -629,10 +629,9 @@ function detailRow(r){
     )}
     ${box("DRR · run rate",
       cell("Avg DRR (period)",fmt1(r.avgDRR),"selected window")+
-      cell("Overall DRR",fmt1(r.overallDRR),"all days")+
       cell("DRR MTD",fmt1(r.drrMTD),"cycle to date")+
       cell("Target DRR", r.tDRR!=null?fmt1(r.tDRR):"—","/day")+
-      cell("Gap to target", r.gap!=null?fmt1(r.gap):"—","DRR")+
+      cell("Gap to target", r.gap!=null?fmt1(r.gap):"—","MTD − target")+
       cell("DRR to hit target", r.drrNeeded!=null?fmt1(r.drrNeeded):"—","/day left")
     )}
     ${box("Volume",
@@ -653,8 +652,8 @@ function detailRow(r){
       cell("Picked", fmt(r.pickedWin||0), "courier collected")+
       cell("Manifested vs picked", r.pickRate!=null?`${(r.pickRate*100).toFixed(0)}%`:"—", `${fmt(r.notPicked||0)} not picked`)+
       cell("Pickup pending", (r.op&&r.op.pp)||0, "awaiting pickup")+
-      cell("RTO rate", r.op?((r.op.rrate*100).toFixed(0)+"%"):"—", r.op&&r.op.trr?r.op.trr:"")+
-      cell("NDR-tagged", r.op?((r.op.nrate*100).toFixed(0)+"%"):"—", r.op&&r.op.tnr?r.op.tnr:"informational")+
+      cell("RTO rate", r.op?((r.op.rrate*100).toFixed(0)+"%"):"—", r.op&&r.op.trr?`${r.op.trr} · ${(r.op.trrP*100).toFixed(0)}% of RTOs`:"")+
+      cell("NDR-tagged", r.op?((r.op.nrate*100).toFixed(0)+"%"):"—", r.op&&r.op.tnr?`${r.op.tnr} · ${(r.op.tnrP*100).toFixed(0)}% of NDRs`:"informational")+
       cell("Total shipments (file)", (r.op&&r.op.tot)||0)
     )}
   </div>`;
@@ -706,7 +705,7 @@ function renderTable(rows){
     const opChips=[
       x.pickRate!=null?`<span class="opchip ${x.lowPick?'hot':''}" title="${fmt(x.pickedWin)} of ${fmt(state.from===state.to?x.today:x.periodVol)} picked up">📦 ${(x.pickRate*100).toFixed(0)}%</span>`:"",
       o.pp>0?`<span class="opchip ${x.pickupFlag?'hot':''}" title="${o.pp} awaiting pickup">🚚 ${o.pp}</span>`:"",
-      o.rrate>0?`<span class="opchip ${x.rtoFlag?'hot':''}" title="RTO rate${o.trr?' · '+o.trr:''}">↩ ${(o.rrate*100).toFixed(0)}%</span>`:"",
+      o.rrate>0?`<span class="opchip ${x.rtoFlag?'hot':''}" title="RTO rate${o.trr?' · '+o.trr+' ('+(o.trrP*100).toFixed(0)+'% of RTOs)':''}">↩ ${(o.rrate*100).toFixed(0)}%</span>`:"",
       (OPS.ndrEnabled&&o.ndr>0)?`<span class="opchip ${x.ndrFlag?'hot':''}" title="${o.ndr} NDR-tagged${o.tnr?' · '+o.tnr:''}">✉ ${o.ndr}</span>`:"",
     ].filter(Boolean).join(" ")||`<span style="color:var(--faint)">—</span>`;
     const open=state.open.has(x.e);
@@ -967,6 +966,7 @@ function buildData(){
   let pullTime=null;
   Object.values(firstTime).forEach(ft=>{ if(ft[pull]!=null) pullTime=(pullTime==null)?ft[pull]:Math.max(pullTime,ft[pull]); });
   const topKey=obj=>{let k="",mx=0;for(const x in obj){if(obj[x]>mx){mx=obj[x];k=x;}}return k;};
+  const topShare=(obj,denom)=>{let k="",mx=0;for(const x in obj){if(obj[x]>mx){mx=obj[x];k=x;}} return {k, p:denom>0?mx/denom:0};};
 
   const sellers=universe.map(se=>{
     const v=new Array(dates.length).fill(0);
@@ -984,8 +984,10 @@ function buildData(){
     const dtime = histTimes.length>=7 ? quantile(histTimes,0.8) : null;
     const ftoday = ft[pull]!=null ? ft[pull] : null;
     const o=ops[se]||{pp:0,rto:0,ndr:0,tot:0,rr:{},nr:{}};
+    const rrTop=topShare(o.rr,o.rto), nrTop=topShare(o.nr,o.ndr);
     const opsSummary={pp:o.pp, rto:o.rto, ndr:o.ndr, tot:o.tot,
-      rrate:o.tot?o.rto/o.tot:0, nrate:o.tot?o.ndr/o.tot:0, trr:topKey(o.rr), tnr:topKey(o.nr)};
+      rrate:o.tot?o.rto/o.tot:0, nrate:o.tot?o.ndr/o.tot:0,
+      trr:rrTop.k, trrP:rrTop.p, tnr:nrTop.k, tnrP:nrTop.p};
     const t = savedTargets[se]!=null ? savedTargets[se] : (haveDir ? 0 : null);
     return {e:se, n:(m&&m.n)||se, ae, c:coh, z:zone, kam,
             t, v, pk, etime, dtime, nd:histTimes.length, ftoday, ops:opsSummary};
