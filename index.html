@@ -302,6 +302,7 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-
     <div class="pager" id="pager" style="display:none">
       <span class="pager-count" id="pagerCount"></span>
       <div class="pager-right">
+        <button class="btn mini" id="exportBtn" title="Download the accounts currently shown (all filters, search, sort & date period applied) as a CSV with the full metric set">⬇ Export CSV</button>
         <label class="pager-pp">Rows
           <select id="perPageSel"><option value="20">20</option><option value="50">50</option><option value="100">100</option></select>
         </label>
@@ -647,7 +648,7 @@ function detailRow(r){
     )}
   </div>`;
 }
-function renderTable(rows){
+function filteredSorted(rows){
   let r=rows.slice();
   if(state.kam!=="__all__") r=r.filter(x=>(x.kam||"")===state.kam);
   if(state.am!=="__all__") r=r.filter(x=>(x.ae||"")===state.am);
@@ -671,7 +672,10 @@ function renderTable(rows){
     name:(a,b)=>a.n.localeCompare(b.n),
   };
   r.sort(S[state.sort]||S.impact);
-
+  return r;
+}
+function renderTable(rows){
+  const r=filteredSorted(rows);
   const tb=document.getElementById("tbody"), pager=document.getElementById("pager");
   if(!r.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty"><b>No sellers match</b>Clear the search or pick another manager.</div></td></tr>`; pager.style.display="none"; return;}
   const total=r.length, pages=Math.max(1,Math.ceil(total/state.perPage));
@@ -1067,6 +1071,74 @@ document.querySelectorAll(".filedrop input").forEach(inp=>inp.addEventListener("
   });
 }));
 
+/* ====== CSV export (current view, full metric set) ====== */
+function flagsText(r){
+  const f=[];
+  if(r.overdue)f.push("Overdue");
+  if(r.silent)f.push("Went silent");
+  if(r.drop)f.push("CALL drop");
+  if(r.surge)f.push("CALL surge");
+  if(r.decline)f.push("3-day slide");
+  if(r.behindPace)f.push("Behind pace");
+  if(r.lowPick)f.push("Low pick-up");
+  if(r.pickupFlag)f.push("Pickup pending");
+  if(r.rtoFlag)f.push("High RTO");
+  return f.join("; ");
+}
+function exportCSV(){
+  if(!DATA.dates.length){ alert("Upload the daily CSV first."); return; }
+  const rows=filteredSorted(analyse().rows);
+  if(!rows.length){ alert("Nothing to export with the current filters."); return; }
+  const single=state.from===state.to;
+  const r1=v=>v==null?"":Math.round(v*10)/10;
+  const ri=v=>v==null?"":Math.round(v);
+  const tm=v=>v==null?"":hhmm(v);
+  const cols=[
+    ["Seller", r=>r.n],
+    ["Email", r=>r.e],
+    ["KAM", r=>r.kam||""],
+    ["AM", r=>amName(r.ae)||""],
+    ["Cohort", r=>r.c||""],
+    ["Zone", r=>r.z||""],
+    [single?"Manifested (day)":"Manifested (period)", r=>single?r.today:r.periodVol],
+    ["Picked", r=>r.pickedWin||0],
+    ["Pick-up rate %", r=>r.pickRate==null?"":Math.round(r.pickRate*100)],
+    ["Not picked", r=>r.notPicked==null?"":r.notPicked],
+    ["DRR MTD", r=>r1(r.drrMTD)],
+    ["Avg DRR (period)", r=>r1(r.avgDRR)],
+    ["Overall DRR", r=>r1(r.overallDRR)],
+    ["Target DRR", r=>r.tDRR==null?"":r1(r.tDRR)],
+    ["Target volume", r=>r.tVol==null?"":r.tVol],
+    ["Volume MTD", r=>r.volMTD],
+    ["Volume left", r=>r.volLeft==null?"":r.volLeft],
+    ["Gap to target (MTD-tgt)", r=>r.gap==null?"":r1(r.gap)],
+    ["DRR to hit target", r=>r.drrNeeded==null?"":r1(r.drrNeeded)],
+    ["Pace %", r=>r.pacePct==null?"":ri(r.pacePct)],
+    ["Delta vs baseline %", r=>r.deltaPct==null||r.deltaPct===Infinity?"":ri(r.deltaPct)],
+    ["WoW %", r=>r.wow==null?"":ri(r.wow)],
+    ["Usual manifest time", r=>tm(r.etime)],
+    ["Expected by", r=>tm(r.dtime)],
+    ["First manifest today", r=>tm(r.ftoday)],
+    ["Pickup pending", r=>(r.op&&r.op.pp)||0],
+    ["RTO rate %", r=>r.op?Math.round(r.op.rrate*100):""],
+    ["RTO top reason", r=>(r.op&&r.op.trr)||""],
+    ["RTO reason %", r=>r.op&&r.op.trr?Math.round(r.op.trrP*100):""],
+    ["NDR rate %", r=>r.op?Math.round(r.op.nrate*100):""],
+    ["NDR top reason", r=>(r.op&&r.op.tnr)||""],
+    ["NDR reason %", r=>r.op&&r.op.tnr?Math.round(r.op.tnrP*100):""],
+    ["Total shipments (file)", r=>(r.op&&r.op.tot)||0],
+    ["Flags", r=>flagsText(r)],
+  ];
+  const esc=v=>{ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const csv=[cols.map(c=>esc(c[0])).join(",")]
+    .concat(rows.map(r=>cols.map(c=>esc(c[1](r))).join(","))).join("\n");
+  const span = single ? state.to : `${state.from}_to_${state.to}`;
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));
+  a.download=`manifest-watch_${span||"export"}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+
 /* ====== wire-up ====== */
 document.getElementById("fromSel").addEventListener("change",e=>{state.from=e.target.value; if(state.to&&state.from>state.to)state.to=state.from; state.open=new Set();render();});
 document.getElementById("toSel").addEventListener("change",e=>{state.to=e.target.value; if(state.from&&state.from>state.to)state.from=state.to; state.open=new Set();render();});
@@ -1078,6 +1150,7 @@ document.getElementById("amSel").addEventListener("change",e=>{state.am=e.target
 document.getElementById("sortSel").addEventListener("change",e=>{state.sort=e.target.value;state.page=1;renderTable(analyse().rows);});
 document.getElementById("searchInput").addEventListener("input",e=>{state.q=e.target.value;state.page=1;renderFilters();renderTable(analyse().rows);});
 document.getElementById("perPageSel").addEventListener("change",e=>{state.perPage=+e.target.value;state.page=1;renderTable(analyse().rows);});
+document.getElementById("exportBtn").addEventListener("click",exportCSV);
 document.getElementById("copyBtn").addEventListener("click",async()=>{
   const t=buildSummary();
   try{await navigator.clipboard.writeText(t);flash("Copied ✓");}
