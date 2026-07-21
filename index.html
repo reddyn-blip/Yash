@@ -239,10 +239,9 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);text-align:center;line-
     <div class="files">
       <label class="filedrop" id="fdManifest" title="Upload the CENTRALISED REPORT"><span class="dot"></span><span><span class="lbl">Daily report</span><br><span class="sub">raw shipment CSV</span></span><input type="file" accept=".csv" data-kind="manifest"></label>
       <label class="filedrop" id="fdTargets"><span class="dot"></span><span><span class="lbl">Targets</span><br><span class="sub">seller + target</span></span><input type="file" accept=".csv,.xlsx,.xls" data-kind="targets"></label>
-      <label class="filedrop" id="fdAccounts" title="Upload the TEMPLATE_UPDATE_SELLERS"><span class="dot"></span><span><span class="lbl">Accounts (AM/KAM)</span><br><span class="sub">optional · directory</span></span><input type="file" accept=".csv,.xlsx,.xls" data-kind="accounts"></label>
       <button class="btn" id="dlBtn" title="Optional — save the processed data as a JSON backup">⬇ Save backup</button>
     </div>
-    <p class="note" id="sourceNote">Everything runs in your browser — nothing is uploaded anywhere. Drop the <b>Daily report</b> and your <b>Target</b> file (and optionally the <b>Accounts</b> directory). With the directory, every account in it is shown and accounts without a target count as target 0. KAM fills in from the directory's KAM column when you add it.</p>
+    <p class="note" id="sourceNote">Everything runs in your browser — nothing is uploaded anywhere. Drop the <b>Daily report</b> (CENTRALISED REPORT) and your <b>Target</b> file. KAM is read from the daily report's shipping-owner and AMs from your Target file.</p>
   </div>
 
   <details class="help" id="helpCard" open>
@@ -1045,7 +1044,8 @@ function buildData(){
     const pdc=pend[se]; if(pdc) for(const [d,q] of Object.entries(pdc)) if(di(d)>=0) pnd[di(d)]=q;
     const m=meta[se], dir=DIR[se];
     const ae=(dir&&dir.ae)||(m&&m.ae)||resolveAmEmail(savedAM[se]||"")||"";
-    const kam=(dir&&dir.kn)||(m&&m.kam)||savedKAM[se]||"";
+    const owner=(m&&m.owner)||(dir&&dir.ke)||"";               // sales_owner_email from the daily report
+    const kam=owner?kamNameFromEmail(owner):"";                // KAM = shipping owner (hard-coded names)
     const coh=(m&&m.c)||(dir&&dir.c)||"";
     const zone=(dir&&dir.z)||(m&&m.z)||"";
     const ft=firstTime[se]||{};
@@ -1109,7 +1109,7 @@ function handleManifest(file,el){
         const ae=String(pick(row,["amEmail","am_email"])).trim().toLowerCase();
         if(!meta[se]) meta[se]={n:pick(row,["seller_name","Seller Name"])||se, ae, c:pick(row,["seller_cohort","cohort"]),
           z:pick(row,["zone","seller_zone","sellerZone"]),
-          kam:String(pick(row,["kamName","kam","key_account_manager","KAM","kamEmail"])).trim()};
+          owner:String(pick(row,["sales_owner_email","salesOwnerEmail","shipping_owner","shippingOwner"])).trim().toLowerCase()};
         if(ae && !amName[ae]) amName[ae]=pick(row,["amName","am_name","AM"]);
       }
       el.querySelector(".sub").textContent=`reading… ${n.toLocaleString()} rows`;
